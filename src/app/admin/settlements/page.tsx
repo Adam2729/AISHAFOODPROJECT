@@ -9,7 +9,7 @@ type Settlement = {
   businessId: string;
   businessName: string;
   weekKey: string;
-  status: "pending" | "collected";
+  status: "pending" | "collected" | "locked";
   ordersCount: number;
   grossSubtotal: number;
   feeTotal: number;
@@ -18,6 +18,8 @@ type Settlement = {
   collectorName?: string;
   collectionMethod?: "cash" | "transfer" | "other";
   receiptPhotoUrl?: string;
+  lockedAt?: string;
+  lockedBy?: string;
 };
 
 type ProofForm = {
@@ -129,6 +131,32 @@ export default function AdminSettlementsPage() {
     load();
   }
 
+  async function lockSettlement(row: Settlement) {
+    if (!key) return;
+    const confirm = window.prompt('Type "LOCK" to confirm settlement lock');
+    if (confirm !== "LOCK") return;
+
+    setSavingId(`lock-${row._id}`);
+    setError("");
+
+    const res = await fetch(`/api/admin/settlements/lock?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId: row.businessId,
+        weekKey: row.weekKey,
+        confirm: "LOCK",
+      }),
+    });
+    const json = await res.json();
+    setSavingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Failed to lock settlement");
+      return;
+    }
+    load();
+  }
+
   useEffect(() => {
     load();
   }, [query, ready]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -194,9 +222,39 @@ export default function AdminSettlementsPage() {
                 <td className="py-2">RD$ {Number(r.grossSubtotal).toFixed(2)}</td>
                 <td className="py-2 font-semibold">RD$ {Number(r.feeTotal).toFixed(2)}</td>
                 <td className="py-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{r.status}</span>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs ${
+                      r.status === "locked"
+                        ? "bg-amber-100 text-amber-800"
+                        : r.status === "collected"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {r.status}
+                  </span>
                 </td>
                 <td className="py-2">
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <Link
+                      href={`/admin/settlements/recompute?key=${encodeURIComponent(key)}&businessId=${encodeURIComponent(
+                        r.businessId
+                      )}&weekKey=${encodeURIComponent(r.weekKey)}`}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold"
+                      target="_blank"
+                    >
+                      Recompute
+                    </Link>
+                    {r.status === "collected" ? (
+                      <button
+                        disabled={savingId === `lock-${r._id}`}
+                        onClick={() => lockSettlement(r)}
+                        className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                      >
+                        {savingId === `lock-${r._id}` ? "Locking..." : "Lock"}
+                      </button>
+                    ) : null}
+                  </div>
                   {r.status === "pending" ? (
                     <div className="grid gap-2">
                       <input
@@ -247,6 +305,11 @@ export default function AdminSettlementsPage() {
                         {r.collectorName ? ` by ${r.collectorName}` : ""}
                       </span>
                       {r.receiptRef ? <span>ReceiptRef: {r.receiptRef}</span> : null}
+                      {r.lockedAt ? (
+                        <span>
+                          Locked: {new Date(r.lockedAt).toLocaleString()} {r.lockedBy ? `(by ${r.lockedBy})` : ""}
+                        </span>
+                      ) : null}
                       {r.receiptPhotoUrl ? (
                         <a
                           href={r.receiptPhotoUrl}

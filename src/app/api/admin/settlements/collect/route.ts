@@ -18,6 +18,18 @@ type Body = {
   receiptPhotoUrl?: string;
 };
 
+type SettlementLean = {
+  _id: mongoose.Types.ObjectId;
+  businessId: mongoose.Types.ObjectId;
+  weekKey: string;
+  status: "pending" | "collected" | "locked";
+  feeTotal?: number;
+  receiptRef?: string;
+  collectorName?: string;
+  collectionMethod?: "cash" | "transfer" | "other";
+  receiptPhotoUrl?: string;
+};
+
 export async function POST(req: Request) {
   const startedAt = Date.now();
   const finish = (
@@ -96,8 +108,31 @@ export async function POST(req: Request) {
     await dbConnect();
     const collectedAt = new Date();
 
+    const objectBusinessId = new mongoose.Types.ObjectId(businessId);
+    const existing = await Settlement.findOne({ businessId: objectBusinessId, weekKey }).lean<SettlementLean | null>();
+    if (!existing) {
+      return finish(fail("NOT_FOUND", "Settlement not found.", 404), 404, {
+        businessId,
+        weekKey,
+      });
+    }
+    if (existing.status === "locked") {
+      return finish(
+        fail("SETTLEMENT_LOCKED", "Settlement is locked and cannot be collected/edited.", 409),
+        409,
+        { businessId, weekKey }
+      );
+    }
+    if (existing.status === "collected") {
+      return finish(ok({ settlement: existing }), 200, {
+        businessId,
+        weekKey,
+        status: "collected",
+      });
+    }
+
     const settlement = await Settlement.findOneAndUpdate(
-      { businessId: new mongoose.Types.ObjectId(businessId), weekKey },
+      { businessId: objectBusinessId, weekKey, status: "pending" },
       {
         $set: {
           status: "collected",
@@ -109,16 +144,37 @@ export async function POST(req: Request) {
         },
       },
       { returnDocument: "after" }
-    ).lean();
+    ).lean<SettlementLean | null>();
     if (!settlement) {
-      return finish(fail("NOT_FOUND", "Settlement not found.", 404), 404, {
+      const latest = await Settlement.findOne({ businessId: objectBusinessId, weekKey }).lean<SettlementLean | null>();
+      if (!latest) {
+        return finish(fail("NOT_FOUND", "Settlement not found.", 404), 404, {
+          businessId,
+          weekKey,
+        });
+      }
+      if (latest.status === "locked") {
+        return finish(
+          fail("SETTLEMENT_LOCKED", "Settlement is locked and cannot be collected/edited.", 409),
+          409,
+          { businessId, weekKey }
+        );
+      }
+      if (latest.status === "collected") {
+        return finish(ok({ settlement: latest }), 200, {
+          businessId,
+          weekKey,
+          status: "collected",
+        });
+      }
+      return finish(fail("CONFLICT", "Settlement was updated by another process. Retry.", 409), 409, {
         businessId,
         weekKey,
       });
     }
 
     await Order.updateMany(
-      { businessId: new mongoose.Types.ObjectId(businessId), "settlement.weekKey": weekKey },
+      { businessId: objectBusinessId, "settlement.weekKey": weekKey },
       {
         $set: {
           "settlement.status": "collected",
@@ -132,11 +188,11 @@ export async function POST(req: Request) {
     );
 
     try {
-      const feeTotal = typeof (settlement as { feeTotal?: unknown })?.feeTotal === "number"
-        ? Number((settlement as { feeTotal?: number }).feeTotal)
+      const feeTotal = typeof settlement?.feeTotal === "number"
+        ? Number(settlement.feeTotal)
         : null;
       await SettlementAudit.create({
-        businessId: new mongoose.Types.ObjectId(businessId),
+        businessId: objectBusinessId,
         weekKey,
         action: "SETTLEMENT_COLLECTED",
         amount: feeTotal,
