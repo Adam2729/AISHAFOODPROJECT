@@ -1,0 +1,20 @@
+import {
+  ENV_BASE_LOCATION,
+  ENV_MAX_RADIUS_KM,
+  ENV_COMMISSION_RATE_DEFAULT,
+  ENV_SUBSCRIPTION_MONTHLY_RDP,
+  ENV_TRIAL_DAYS,
+  ENV_GRACE_DAYS,
+} from "@/lib/env";
+
+export const BASE_LOCATION = {
+  // TODO: replace with exact Google Maps coordinates for your HQ.
+  lat: ENV_BASE_LOCATION.lat,
+  lng: ENV_BASE_LOCATION.lng,
+};
+
+export const MAX_RADIUS_KM = ENV_MAX_RADIUS_KM;
+export const COMMISSION_RATE_DEFAULT = ENV_COMMISSION_RATE_DEFAULT;
+export const SUBSCRIPTION_MONTHLY_RDP = ENV_SUBSCRIPTION_MONTHLY_RDP;
+export const TRIAL_DAYS = ENV_TRIAL_DAYS;
+export const GRACE_DAYS = ENV_GRACE_DAYS;

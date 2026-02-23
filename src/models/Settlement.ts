@@ -1,0 +1,20 @@
+import { Schema, model, models } from "mongoose";
+
+const SettlementSchema = new Schema(
+  {
+    businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    businessName: { type: String, required: true },
+    weekKey: { type: String, required: true, index: true },
+    status: { type: String, enum: ["pending", "collected"], default: "pending", index: true },
+    ordersCount: { type: Number, default: 0 },
+    grossSubtotal: { type: Number, default: 0 },
+    feeTotal: { type: Number, default: 0 },
+    receiptRef: { type: String, default: "" },
+    collectedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+SettlementSchema.index({ businessId: 1, weekKey: 1 }, { unique: true });
+
+export const Settlement = models.Settlement || model("Settlement", SettlementSchema);
