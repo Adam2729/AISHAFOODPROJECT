@@ -27,6 +27,11 @@ type SubscriptionInput = {
   graceDays?: number | null;
 };
 
+function growthPct(current: number, previous: number) {
+  if (previous <= 0) return current > 0 ? 100 : 0;
+  return Number((((current - previous) / previous) * 100).toFixed(2));
+}
+
 export async function GET(req: Request) {
   try {
     requireAdminKey(req);
@@ -36,6 +41,9 @@ export async function GET(req: Request) {
     const today = new Date();
     const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const weekKey = getWeekKey(today);
+    const prevWeekDate = new Date(today);
+    prevWeekDate.setDate(prevWeekDate.getDate() - 7);
+    const prevWeekKey = getWeekKey(prevWeekDate);
     const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const businesses = await Business.find({ isActive: true })
@@ -50,12 +58,32 @@ export async function GET(req: Request) {
 
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: dayStart } });
     const ordersThisWeek = await Order.countDocuments({ "settlement.weekKey": weekKey });
+    const deliveredThisWeek = await Order.countDocuments({
+      "settlement.weekKey": weekKey,
+      status: "delivered",
+    });
+    const deliveredPrevWeek = await Order.countDocuments({
+      "settlement.weekKey": prevWeekKey,
+      status: "delivered",
+    });
 
     const feeAgg = await Order.aggregate<{ _id: null; feeTotal: number }>([
       { $match: { "settlement.weekKey": weekKey, status: "delivered" } },
       { $group: { _id: null, feeTotal: { $sum: "$commissionAmount" } } },
     ]);
     const feeThisWeek = Number(feeAgg[0]?.feeTotal || 0);
+
+    const feePrevAgg = await Order.aggregate<{ _id: null; feeTotal: number }>([
+      { $match: { "settlement.weekKey": prevWeekKey, status: "delivered" } },
+      { $group: { _id: null, feeTotal: { $sum: "$commissionAmount" } } },
+    ]);
+    const feePrevWeek = Number(feePrevAgg[0]?.feeTotal || 0);
+
+    const feeTodayAgg = await Order.aggregate<{ _id: null; feeTotal: number }>([
+      { $match: { createdAt: { $gte: dayStart }, status: "delivered" } },
+      { $group: { _id: null, feeTotal: { $sum: "$commissionAmount" } } },
+    ]);
+    const commissionToday = Number(feeTodayAgg[0]?.feeTotal || 0);
 
     const topRaw = await Order.aggregate<TopBusinessAgg>([
       { $match: { "settlement.weekKey": weekKey, status: "delivered" } },
@@ -101,7 +129,10 @@ export async function GET(req: Request) {
         businessesActive,
         ordersToday,
         ordersThisWeek,
+        commissionToday,
         feeThisWeek,
+        ordersWeeklyGrowthPct: growthPct(deliveredThisWeek, deliveredPrevWeek),
+        commissionWeeklyGrowthPct: growthPct(feeThisWeek, feePrevWeek),
         activeBusinesses,
         churnedBusinesses,
         repeatCustomerRate,

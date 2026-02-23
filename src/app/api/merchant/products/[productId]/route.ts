@@ -45,7 +45,7 @@ export async function PATCH(
     const product = await Product.findOneAndUpdate(
       { _id: productId, businessId: new mongoose.Types.ObjectId(session.businessId) },
       { $set: update },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!product) return fail("NOT_FOUND", "Product not found.", 404);
     return ok({ product });

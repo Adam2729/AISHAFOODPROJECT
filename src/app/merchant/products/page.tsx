@@ -34,6 +34,7 @@ export default function MerchantProductsPage() {
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Failed to load products");
       if (res.status === 401) router.push("/merchant/login");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     setRows(json.products || []);
@@ -53,6 +54,7 @@ export default function MerchantProductsPage() {
     const json = await res.json();
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Could not create product");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     setForm(initialForm);
@@ -68,6 +70,7 @@ export default function MerchantProductsPage() {
     const json = await res.json();
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Could not update product");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     load();
@@ -80,6 +83,7 @@ export default function MerchantProductsPage() {
     const json = await res.json();
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Could not delete product");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     load();

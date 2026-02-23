@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/mongodb";
+import { getBoolSetting } from "@/lib/appSettings";
 import { ENV_BASE_LOCATION, ENV_MAX_RADIUS_KM, ENV_NODE_ENV } from "@/lib/env";
 
 type HealthEnv = "production" | "preview" | "development";
@@ -16,6 +17,10 @@ export async function GET() {
   try {
     await dbConnect();
     const dbName = mongoose.connection?.name || "unknown";
+    const [pilotMode, pilotAllowlistEnabled] = await Promise.all([
+      getBoolSetting("pilot_mode", false),
+      getBoolSetting("pilot_allowlist_enabled", true),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -29,6 +34,8 @@ export async function GET() {
         lng: ENV_BASE_LOCATION.lng,
       },
       maxRadiusKm: ENV_MAX_RADIUS_KM,
+      pilotMode,
+      pilotAllowlistEnabled,
       timestamp: new Date().toISOString(),
     });
   } catch {
@@ -42,6 +49,8 @@ export async function GET() {
           lng: ENV_BASE_LOCATION.lng,
         },
         maxRadiusKm: ENV_MAX_RADIUS_KM,
+        pilotMode: false,
+        pilotAllowlistEnabled: true,
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

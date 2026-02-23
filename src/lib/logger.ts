@@ -13,6 +13,18 @@ export function maskPhone(phone: string) {
   return `${"*".repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
 }
 
+export function maskIp(ip: string) {
+  const raw = String(ip || "").trim();
+  if (!raw) return "***";
+  if (raw.includes(":")) {
+    const parts = raw.split(":");
+    return `${parts.slice(0, 2).join(":")}:***`;
+  }
+  const parts = raw.split(".");
+  if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.*`;
+  return "***";
+}
+
 export function logRequest(req: Request, meta: LogMeta) {
   const payload = {
     type: "request_log",

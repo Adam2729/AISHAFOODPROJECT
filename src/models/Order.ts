@@ -55,6 +55,10 @@ const OrderSchema = new Schema(
       status: { type: String, enum: ["pending", "collected"], default: "pending" },
       counted: { type: Boolean, default: false },
       collectedAt: { type: Date, default: null },
+      receiptRef: { type: String, default: "" },
+      collectorName: { type: String, trim: true, maxlength: 60, default: "" },
+      collectionMethod: { type: String, enum: ["cash", "transfer", "other"], default: "cash" },
+      receiptPhotoUrl: { type: String, trim: true, maxlength: 500, default: "" },
     },
   },
   { timestamps: true }

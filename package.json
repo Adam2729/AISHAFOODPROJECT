@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seedDemo.ts"
+    "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seedDemo.ts",
+    "qa:smoke": "node scripts/smokeSuite.js",
+    "qa:smoke:win": "powershell -ExecutionPolicy Bypass -File scripts/smokeSuite.ps1",
+    "incident:new:win": "powershell -ExecutionPolicy Bypass -File scripts/new-incident.ps1"
   },
   "dependencies": {
     "mongoose": "^9.2.1",

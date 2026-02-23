@@ -22,6 +22,7 @@ type CreateBusinessBody = {
   commissionRate?: number;
   pin?: string;
   password?: string;
+  isDemo?: boolean;
 };
 
 export async function GET(req: Request) {
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
         address: b.address,
         logoUrl: b.logoUrl || "",
         isActive: b.isActive,
+        isDemo: Boolean(b.isDemo),
         commissionRate: b.commissionRate,
         subscription: {
           ...sub,
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
     const address = String(body.address || "").trim();
     const logoUrl = String(body.logoUrl || "").trim();
     const pin = String(body.pin || body.password || "").trim();
+    const isDemo = Boolean(body.isDemo);
     const lat = Number(body.lat);
     const lng = Number(body.lng);
     const commissionRate = Number(body.commissionRate ?? COMMISSION_RATE_DEFAULT);
@@ -91,8 +94,9 @@ export async function POST(req: Request) {
       logoUrl,
       location: { type: "Point", coordinates: [lng, lat] },
       isActive: true,
+      isDemo,
       commissionRate: Number.isFinite(commissionRate) ? commissionRate : COMMISSION_RATE_DEFAULT,
-      auth: { pinHash: hashSecret(pin), mustChange: false },
+      auth: { pinHash: hashSecret(pin), mustChange: true },
       subscription: {
         status: "trial",
         trialDays: TRIAL_DAYS,

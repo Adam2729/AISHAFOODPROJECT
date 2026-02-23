@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         name: (business as any).name,
         type: (business as any).type,
       },
+      mustChangePin: Boolean((business as any).auth?.mustChange),
     });
   } catch {
     return fail("SERVER_ERROR", "Could not login.", 500);

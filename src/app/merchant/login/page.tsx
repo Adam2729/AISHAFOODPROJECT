@@ -25,6 +25,10 @@ export default function MerchantLoginPage() {
       setError(json?.error?.message || json?.error || "Login failed");
       return;
     }
+    if (json.mustChangePin) {
+      router.push("/merchant/set-pin");
+      return;
+    }
     router.push("/merchant/orders");
   }
 

@@ -9,7 +9,10 @@ import { computeSubscriptionStatus } from "@/lib/subscription";
 import { geocodeAddress, isValidLatLng } from "@/lib/googleMaps";
 import { generateUniqueOrderNumber, isDuplicateKeyError } from "@/lib/orderNumber";
 import { runSubscriptionStatusJob } from "@/lib/subscriptionJob";
-import { logRequest, maskPhone } from "@/lib/logger";
+import { logRequest, maskIp, maskPhone } from "@/lib/logger";
+import { assertNotInMaintenance } from "@/lib/maintenance";
+import { assertPilotAllowed } from "@/lib/pilot";
+import { consumeRateLimit } from "@/lib/requestRateLimit";
 import { Business } from "@/models/Business";
 import { Product } from "@/models/Product";
 import { Order } from "@/models/Order";
@@ -34,6 +37,14 @@ function normalizeString(v: unknown) {
   return String(v || "").trim();
 }
 
+function getClientIp(req: Request) {
+  const forwarded = String(req.headers.get("x-forwarded-for") || "").trim();
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  return String(req.headers.get("x-real-ip") || "").trim();
+}
+
 export async function POST(req: Request) {
   const startedAt = Date.now();
   const finish = (
@@ -51,6 +62,8 @@ export async function POST(req: Request) {
   };
 
   try {
+    await assertNotInMaintenance();
+
     const body = await readJson<CreateOrderBody>(req);
     const customerName = normalizeString(body.customerName);
     const phone = normalizeString(body.phone);
@@ -74,6 +87,17 @@ export async function POST(req: Request) {
     }
     if (!items.every((it) => mongoose.Types.ObjectId.isValid(String(it.productId)) && Number(it.qty) > 0)) {
       return finish(fail("VALIDATION_ERROR", "Invalid productId/qty in items."), 400, { businessId });
+    }
+    await assertPilotAllowed(phone);
+
+    const clientIp = getClientIp(req);
+    const ipLimit = consumeRateLimit(`public-order-ip:${clientIp}`, 30, 5 * 60 * 1000);
+    if (!ipLimit.allowed) {
+      return finish(
+        fail("RATE_LIMIT_IP", "Demasiadas solicitudes. Intenta de nuevo en un momento.", 429),
+        429,
+        { ip: maskIp(clientIp) }
+      );
     }
 
     if (!coordsProvided) {
@@ -104,7 +128,7 @@ export async function POST(req: Request) {
     });
     if (recentByPhone >= 5) {
       return finish(
-        fail("RATE_LIMIT_PHONE", "Too many orders from this phone. Please wait a few minutes.", 429),
+        fail("RATE_LIMIT_PHONE", "Demasiados pedidos desde este telefono. Espera unos minutos.", 429),
         429,
         { phone: maskPhone(phone) }
       );
@@ -113,6 +137,13 @@ export async function POST(req: Request) {
     const business = await Business.findById(businessId).lean();
     if (!business || !(business as any).isActive) {
       return finish(fail("BUSINESS_NOT_AVAILABLE", "Business is not available.", 404), 404, { businessId });
+    }
+    if (Boolean((business as any).paused)) {
+      return finish(
+        fail("BUSINESS_PAUSED", "Este negocio esta pausado temporalmente.", 403),
+        403,
+        { businessId }
+      );
     }
     const subscription = computeSubscriptionStatus((business as any).subscription || {});
     if (subscription.status === "suspended") {
@@ -207,6 +238,11 @@ export async function POST(req: Request) {
         orderNumber: created.orderNumber,
         status: created.status,
         payment: { method: "cash", status: "unpaid" },
+        contact: {
+          whatsapp: String((business as any).whatsapp || ""),
+          phone: String((business as any).phone || ""),
+          businessName: String((business as any).name || ""),
+        },
         totals: {
           subtotal,
           deliveryFeeToCustomer: 0,
@@ -220,9 +256,10 @@ export async function POST(req: Request) {
       orderNumber: created.orderNumber,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Could not create order.";
-    return finish(fail("SERVER_ERROR", "Could not create order.", 500), 500, {
-      error: message,
+    const err = error as Error & { status?: number; code?: string };
+    const status = err.status || 500;
+    return finish(fail(err.code || "SERVER_ERROR", err.message || "Could not create order.", status), status, {
+      error: err.message || "Could not create order.",
     });
   }
 }

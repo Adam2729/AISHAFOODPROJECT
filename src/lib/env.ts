@@ -7,6 +7,7 @@ const schema = z.object({
   BASE_LOCATION_LAT: z.coerce.number(),
   BASE_LOCATION_LNG: z.coerce.number(),
   MAX_RADIUS_KM: z.coerce.number().positive().default(8),
+  MAINTENANCE_MODE: z.coerce.boolean().default(false),
   NODE_ENV: z.enum(["development", "production", "test"]).optional(),
 
   COMMISSION_RATE_DEFAULT: z.coerce.number().default(0.08),
@@ -22,6 +23,7 @@ const parsed = schema.safeParse({
   BASE_LOCATION_LAT: process.env.BASE_LOCATION_LAT,
   BASE_LOCATION_LNG: process.env.BASE_LOCATION_LNG,
   MAX_RADIUS_KM: process.env.MAX_RADIUS_KM ?? 8,
+  MAINTENANCE_MODE: process.env.MAINTENANCE_MODE,
   NODE_ENV: process.env.NODE_ENV,
   COMMISSION_RATE_DEFAULT: process.env.COMMISSION_RATE_DEFAULT ?? 0.08,
   SUBSCRIPTION_MONTHLY_RDP: process.env.SUBSCRIPTION_MONTHLY_RDP ?? 1500,
@@ -43,6 +45,7 @@ export const ENV_BASE_LOCATION = {
   lng: env.BASE_LOCATION_LNG,
 } as const;
 export const ENV_MAX_RADIUS_KM = env.MAX_RADIUS_KM;
+export const ENV_MAINTENANCE_MODE = env.MAINTENANCE_MODE;
 export const ENV_NODE_ENV = env.NODE_ENV ?? "development";
 
 export const ENV_COMMISSION_RATE_DEFAULT = env.COMMISSION_RATE_DEFAULT;

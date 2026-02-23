@@ -10,6 +10,9 @@ const SettlementSchema = new Schema(
     grossSubtotal: { type: Number, default: 0 },
     feeTotal: { type: Number, default: 0 },
     receiptRef: { type: String, default: "" },
+    collectorName: { type: String, trim: true, maxlength: 60, default: "" },
+    collectionMethod: { type: String, enum: ["cash", "transfer", "other"], default: "cash" },
+    receiptPhotoUrl: { type: String, trim: true, maxlength: 500, default: "" },
     collectedAt: { type: Date, default: null },
   },
   { timestamps: true }

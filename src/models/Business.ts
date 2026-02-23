@@ -22,7 +22,18 @@ const BusinessSchema = new Schema(
       },
     },
     isActive: { type: Boolean, default: true, index: true },
+    isDemo: { type: Boolean, default: false, index: true },
+    paused: { type: Boolean, default: false, index: true },
+    pausedReason: { type: String, default: "", trim: true, maxlength: 140 },
+    pausedAt: { type: Date, default: null },
     commissionRate: { type: Number, default: COMMISSION_RATE_DEFAULT },
+    health: {
+      complaintsCount: { type: Number, default: 0 },
+      cancelsCount30d: { type: Number, default: 0 },
+      slowAcceptCount30d: { type: Number, default: 0 },
+      lastHealthUpdateAt: { type: Date, default: null },
+      lastHealthResetAt: { type: Date, default: null },
+    },
     auth: {
       pinHash: { type: String, required: true },
       mustChange: { type: Boolean, default: false },

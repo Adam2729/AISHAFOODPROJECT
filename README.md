@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aisha Food Backend
 
-## Getting Started
+Next.js App Router backend for marketplace orders, merchant operations, settlements, and admin controls.
 
-First, run the development server:
+## Requirements
+- Node.js 20+
+- MongoDB
+
+## Environment
+Copy `.env.example` to `.env.local` and fill values:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required vars include:
+- `MONGODB_URI`
+- `ADMIN_KEY`
+- `JWT_SECRET`
+- `BASE_LOCATION_LAT`
+- `BASE_LOCATION_LNG`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Run Local
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Server:
+- Local: `http://localhost:3000`
 
-## Learn More
+## QA Smoke Suite
+Runs end-to-end checks automatically:
+- create business
+- merchant login
+- create product
+- create public order
+- transition order to delivered
+- verify settlement + audit
 
-To learn more about Next.js, take a look at the following resources:
+Linux/macOS:
+```bash
+npm run qa:smoke
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Windows:
+```bash
+npm run qa:smoke:win
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Windows wrapper options:
+```powershell
+.\scripts\smokeSuite.ps1 -BaseUrl "http://localhost:3000"
+.\scripts\smokeSuite.ps1 -SkipHealthCheck
+```
 
-## Deploy on Vercel
+## Merchant Onboarding v2
+- New businesses are created with `auth.mustChange = true`.
+- On first merchant login:
+  - login response includes `mustChangePin: true`
+  - UI redirects to `/merchant/set-pin`
+  - merchant APIs return `PIN_CHANGE_REQUIRED` until PIN is updated.
+- PIN update endpoint:
+  - `POST /api/merchant/auth/set-pin`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## CI (PR Smoke)
+GitHub Actions workflow:
+- `.github/workflows/backend-smoke-pr.yml`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+On pull requests affecting backend:
+1. starts Mongo service
+2. runs `npm run lint`
+3. runs `npx tsc --noEmit`
+4. starts backend
+5. waits for `/api/health`
+6. runs `npm run qa:smoke`
+
+## Operations
+- Incident and release procedure:
+  - `RUNBOOK.md`
+- Incident report template:
+  - `INCIDENT_TEMPLATE.md`
+- Create a new incident report (Windows):
+  - `npm run incident:new:win`
+
+## Useful Endpoints
+- Health: `GET /api/health`
+- Admin maintenance toggle: `GET/POST /api/admin/maintenance?key=...`
+- Admin settlements: `GET /api/admin/settlements?key=...`
+- Admin settlements CSV export: `GET /api/admin/settlements/export?key=...&weekKey=YYYY-Www`
+- Admin audit by week: `GET /api/admin/audit?key=...&businessId=...&weekKey=YYYY-Www`

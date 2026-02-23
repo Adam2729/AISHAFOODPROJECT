@@ -31,6 +31,7 @@ export default function MerchantOrdersPage() {
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Failed to load orders");
       if (res.status === 401) router.push("/merchant/login");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     setRows(json.orders || []);
@@ -47,6 +48,7 @@ export default function MerchantOrdersPage() {
     setSaving("");
     if (!res.ok || !json.ok) {
       setError(json?.error?.message || json?.error || "Update failed");
+      if (json?.error?.code === "PIN_CHANGE_REQUIRED") router.push("/merchant/set-pin");
       return;
     }
     load();
