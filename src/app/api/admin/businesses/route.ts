@@ -6,6 +6,8 @@ import { COMMISSION_RATE_DEFAULT, SUBSCRIPTION_MONTHLY_RDP, TRIAL_DAYS } from "@
 import { addDays, computeSubscriptionStatus } from "@/lib/subscription";
 import { runSubscriptionStatusJob } from "@/lib/subscriptionJob";
 import { hashSecret } from "@/lib/password";
+import { getMerchantDeliveryInfo } from "@/lib/deliveryPolicy";
+import { getDefaultCity } from "@/lib/city";
 import { Business } from "@/models/Business";
 
 type ApiError = Error & { status?: number; code?: string };
@@ -34,6 +36,7 @@ export async function GET(req: Request) {
 
     const rows = businesses.map((b: any) => {
       const sub = computeSubscriptionStatus(b.subscription || {});
+      const deliveryPolicy = getMerchantDeliveryInfo(b as { deliveryPolicy?: Record<string, unknown> });
       return {
         id: String(b._id),
         type: b.type,
@@ -44,7 +47,34 @@ export async function GET(req: Request) {
         logoUrl: b.logoUrl || "",
         isActive: b.isActive,
         isDemo: Boolean(b.isDemo),
+        cityId: b.cityId ? String(b.cityId) : null,
         commissionRate: b.commissionRate,
+        paused: Boolean(b.paused),
+        pausedReason: String(b.pausedReason || ""),
+        pausedAt: b.pausedAt || null,
+        health: {
+          complaintsCount: Number(b.health?.complaintsCount || 0),
+          cancelsCount30d: Number(b.health?.cancelsCount30d || 0),
+          slowAcceptCount30d: Number(b.health?.slowAcceptCount30d || 0),
+          lastHealthUpdateAt: b.health?.lastHealthUpdateAt || null,
+          lastHealthResetAt: b.health?.lastHealthResetAt || null,
+        },
+        performance: {
+          score: Number(b.performance?.score ?? 50),
+          tier: String(b.performance?.tier || "bronze"),
+          updatedAt: b.performance?.updatedAt || null,
+          overrideBoost: Number(b.performance?.overrideBoost || 0),
+          overrideTier: b.performance?.overrideTier || null,
+          note: b.performance?.note || null,
+        },
+        deliveryPolicy: {
+          mode: deliveryPolicy.mode,
+          courierName: deliveryPolicy.courierName,
+          courierPhone: deliveryPolicy.courierPhone,
+          publicNoteEs: deliveryPolicy.publicNoteEs,
+          instructionsEs: deliveryPolicy.instructionsEs,
+          updatedAt: deliveryPolicy.updatedAt,
+        },
         subscription: {
           ...sub,
           trialDays: b.subscription?.trialDays ?? TRIAL_DAYS,
@@ -83,6 +113,7 @@ export async function POST(req: Request) {
     if (pin.length < 4) return fail("VALIDATION_ERROR", "PIN/password must be at least 4 chars.");
 
     await dbConnect();
+    const defaultCity = await getDefaultCity();
     const trialStartedAt = new Date();
     const trialEndsAt = addDays(trialStartedAt, TRIAL_DAYS);
     const created = await Business.create({
@@ -93,6 +124,7 @@ export async function POST(req: Request) {
       address,
       logoUrl,
       location: { type: "Point", coordinates: [lng, lat] },
+      cityId: defaultCity._id,
       isActive: true,
       isDemo,
       commissionRate: Number.isFinite(commissionRate) ? commissionRate : COMMISSION_RATE_DEFAULT,

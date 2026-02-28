@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$BaseUrl = "http://localhost:3000",
-  [switch]$SkipHealthCheck
+  [switch]$SkipHealthCheck,
+  [switch]$SkipUserProfileSmoke
 )
 
 Set-StrictMode -Version Latest
@@ -79,6 +80,14 @@ Write-Host "Running smoke suite against $normalizedBase ..." -ForegroundColor Cy
 & npm run qa:smoke
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
+}
+
+if (-not $SkipUserProfileSmoke) {
+  Write-Host "Running user profile smoke as part of suite..." -ForegroundColor Cyan
+  & npm run qa:smoke:user-profile
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
 }
 
 Write-Host "Smoke suite completed successfully." -ForegroundColor Green

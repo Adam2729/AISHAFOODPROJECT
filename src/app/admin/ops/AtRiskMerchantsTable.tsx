@@ -8,6 +8,9 @@ type AtRiskBusiness = {
   name: string;
   paused: boolean;
   pausedReason?: string;
+  staleNewOrdersCount24h?: number;
+  oldestStaleOrderMinutes?: number;
+  newestStaleOrderCreatedAt?: string | null;
   health?: {
     complaintsCount?: number;
     cancelsCount30d?: number;
@@ -141,6 +144,8 @@ export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
               <th className="pb-2">Complaints</th>
               <th className="pb-2">Cancels(30d)</th>
               <th className="pb-2">SlowAccept(30d)</th>
+              <th className="pb-2">Stale new (24h)</th>
+              <th className="pb-2">Oldest stale (min)</th>
               <th className="pb-2">Actions</th>
             </tr>
           </thead>
@@ -163,6 +168,8 @@ export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
                   <td className="py-2">{Number(b.health?.complaintsCount || 0)}</td>
                   <td className="py-2">{Number(b.health?.cancelsCount30d || 0)}</td>
                   <td className="py-2">{Number(b.health?.slowAcceptCount30d || 0)}</td>
+                  <td className="py-2">{Number(b.staleNewOrdersCount24h || 0)}</td>
+                  <td className="py-2">{Number(b.oldestStaleOrderMinutes || 0)}</td>
                   <td className="py-2">
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -195,7 +202,7 @@ export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="py-3 text-center text-slate-500">
+                <td colSpan={8} className="py-3 text-center text-slate-500">
                   No at-risk merchants.
                 </td>
               </tr>
@@ -206,4 +213,3 @@ export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
     </section>
   );
 }
-

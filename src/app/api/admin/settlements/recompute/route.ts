@@ -6,6 +6,7 @@ import { logRequest } from "@/lib/logger";
 import { Settlement } from "@/models/Settlement";
 import { SettlementAudit } from "@/models/SettlementAudit";
 import { Order } from "@/models/Order";
+import { settlementHashV1 } from "@/lib/integrity";
 
 type ApiError = Error & { status?: number; code?: string };
 
@@ -22,6 +23,7 @@ type SettlementLean = {
   ordersCount?: number;
   grossSubtotal?: number;
   feeTotal?: number;
+  integrityHash?: string;
 };
 
 type AggregateRow = {
@@ -75,26 +77,25 @@ export async function POST(req: Request) {
     await dbConnect();
     const objectBusinessId = new mongoose.Types.ObjectId(businessId);
 
-    const [settlement, aggregate] = await Promise.all([
-      Settlement.findOne({ businessId: objectBusinessId, weekKey }).lean<SettlementLean | null>(),
-      Order.aggregate<AggregateRow>([
-        {
-          $match: {
-            businessId: objectBusinessId,
-            status: "delivered",
-            "settlement.weekKey": weekKey,
-            "settlement.counted": true,
-          },
+    const settlement = await Settlement.findOne({ businessId: objectBusinessId, weekKey }).lean<SettlementLean | null>();
+
+    const aggregate = await Order.aggregate<AggregateRow>([
+      {
+        $match: {
+          businessId: objectBusinessId,
+          status: "delivered",
+          "settlement.weekKey": weekKey,
+          "settlement.counted": true,
         },
-        {
-          $group: {
-            _id: null,
-            ordersCount: { $sum: 1 },
-            grossSubtotal: { $sum: { $ifNull: ["$subtotal", 0] } },
-            feeTotal: { $sum: { $ifNull: ["$commissionAmount", 0] } },
-          },
+      },
+      {
+        $group: {
+          _id: null,
+          ordersCount: { $sum: 1 },
+          grossSubtotal: { $sum: { $ifNull: ["$subtotal", 0] } },
+          feeTotal: { $sum: { $ifNull: ["$commissionAmount", 0] } },
         },
-      ]),
+      },
     ]);
 
     const expected = {
@@ -109,7 +110,22 @@ export async function POST(req: Request) {
           ordersCount: toNumber(settlement.ordersCount),
           grossSubtotal: toNumber(settlement.grossSubtotal),
           feeTotal: toNumber(settlement.feeTotal),
+          integrityHash: String(settlement.integrityHash || "").trim(),
         }
+      : null;
+    const locked = settlement?.status === "locked";
+    const integrityHasHash = Boolean(stored?.integrityHash);
+    const expectedHash = settlement
+      ? settlementHashV1({
+          businessId: String(settlement.businessId),
+          weekKey: settlement.weekKey,
+          ordersCount: toNumber(settlement.ordersCount),
+          grossSubtotal: toNumber(settlement.grossSubtotal),
+          feeTotal: toNumber(settlement.feeTotal),
+        })
+      : null;
+    const hashMatches = settlement
+      ? (integrityHasHash ? expectedHash === stored?.integrityHash : null)
       : null;
 
     const diff = {
@@ -119,7 +135,6 @@ export async function POST(req: Request) {
     };
 
     const mismatch = isNonZero(diff.ordersCount) || isNonZero(diff.grossSubtotal) || isNonZero(diff.feeTotal);
-    const locked = settlement?.status === "locked";
 
     try {
       await SettlementAudit.create({
@@ -129,6 +144,7 @@ export async function POST(req: Request) {
         amount: expected.feeTotal,
         meta: {
           mismatch,
+          integrityHashMatches: hashMatches,
           expectedFeeTotal: expected.feeTotal,
           storedFeeTotal: stored?.feeTotal ?? null,
           diffFeeTotal: diff.feeTotal,
@@ -160,6 +176,12 @@ export async function POST(req: Request) {
         stored,
         diff,
         mismatch,
+        integrity: {
+          hasHash: integrityHasHash,
+          hashMatches,
+          storedHash: integrityHasHash ? stored?.integrityHash || null : null,
+          expectedHash: integrityHasHash ? expectedHash : null,
+        },
         computedAt: new Date().toISOString(),
       }),
       200,
@@ -167,6 +189,7 @@ export async function POST(req: Request) {
         businessId,
         weekKey,
         mismatch,
+        integrityHashMatches: hashMatches,
         locked,
       }
     );

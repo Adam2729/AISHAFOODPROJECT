@@ -13,6 +13,14 @@ const ALLOWED_BOOL_KEYS = new Set([
   "pilot_mode",
   "pilot_allowlist_enabled",
   "sla_auto_pause_enabled",
+  "promos_enabled",
+  "menu_quality_pause_enabled",
+  "auto_hide_enabled",
+  "auto_hide_never_sold_enabled",
+  "finance_proof_required_non_in_person",
+  "finance_alerts_enabled",
+  "finance_alerts_reopen_resolved",
+  "finance_digest_daily_enabled",
 ]);
 
 export async function POST(req: Request) {

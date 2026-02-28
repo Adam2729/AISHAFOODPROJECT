@@ -114,3 +114,70 @@ When incident is resolved, fill:
 - `INCIDENT_TEMPLATE.md`
 - Quick create (Windows):
   - `npm run incident:new:win`
+
+## 10) Idempotency (Order Create)
+- Endpoint: `POST /api/public/orders`
+- Header or body key:
+  - `Idempotency-Key: <client-generated-unique-key>`
+  - or `idempotencyKey` in JSON body
+- Behavior:
+  1. First request with key processes normally.
+  2. Subsequent request with same key returns the exact stored response (`statusCode` + `body`).
+  3. If first request is still running, API returns `409 IDEMPOTENCY_IN_PROGRESS`.
+
+### Smoke Test
+- Windows:
+  - `npm run qa:smoke:idempotency:win`
+- Linux/macOS:
+  - `npm run qa:smoke:idempotency`
+
+## 11) Backup Export Job (Ops + Cron)
+### Manual Run (Admin)
+- `POST /api/admin/jobs/backup-export?key=ADMIN_KEY`
+- Optional payload:
+```json
+{
+  "kind": "all",
+  "sinceDays": 7
+}
+```
+Where:
+- `kind`: `orders` | `settlements` | `cashCollections` | `all`
+- `sinceDays`: default `7`, max `30`
+
+### Cron Run (Secured)
+- `GET /api/admin/jobs/backup-export?kind=all&sinceDays=7`
+- Auth:
+  - `Authorization: Bearer <CRON_SECRET>`
+  - or `x-cron-secret: <CRON_SECRET>`
+
+### Artifacts
+- JSONL files are written under `/tmp/aisha-backups/<runId>/`
+- Run metadata available at:
+  - `GET /api/admin/backup-runs?key=ADMIN_KEY`
+
+### Atlas Backup Alternative
+- If app-level export is unavailable:
+  1. Open MongoDB Atlas.
+  2. Use Cloud Backup/PITR snapshot for the cluster.
+  3. Export target collections (`orders`, `settlements`, `cashcollections`) using Atlas tools.
+
+## 12) Restore Drill (Document-Only)
+1. Select a recent backup export run and verify JSONL integrity.
+2. Spin up a staging database.
+3. Import collections into staging:
+   - `orders`
+   - `settlements`
+   - `cashcollections`
+4. Verify:
+   - `/api/admin/indexes?key=ADMIN_KEY`
+   - `/api/status`
+   - smoke suite + idempotency smoke
+5. Record restore duration and any failed records in incident notes.
+
+## 13) Rate Limit Persistence Test (Across Restart)
+1. Trigger rate-limit on a public route (example: complaints/reviews/orders).
+2. Confirm route returns `429` with `Retry-After`.
+3. Restart the backend process/deployment.
+4. Retry immediately with same key (same phone/session).
+5. Confirm route still returns `429` until the same window expires.

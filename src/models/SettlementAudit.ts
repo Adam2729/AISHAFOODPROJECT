@@ -6,7 +6,13 @@ const SettlementAuditSchema = new Schema(
     weekKey: { type: String, required: true, index: true },
     action: {
       type: String,
-      enum: ["ORDER_COUNTED", "SETTLEMENT_COLLECTED", "SETTLEMENT_LOCKED", "SETTLEMENT_RECOMPUTE"],
+      enum: [
+        "ORDER_COUNTED",
+        "SETTLEMENT_COLLECTED",
+        "SETTLEMENT_LOCKED",
+        "SETTLEMENT_RECOMPUTE",
+        "SETTLEMENT_RESOLVED",
+      ],
       required: true,
       index: true,
     },

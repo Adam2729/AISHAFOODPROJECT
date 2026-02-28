@@ -3,7 +3,50 @@
     {
       "path": "/api/admin/jobs/weekly-health-reset",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/admin/jobs/settlement-previews",
+      "schedule": "55 23 * * 0"
+    },
+    {
+      "path": "/api/admin/jobs/promo-budget-reconcile",
+      "schedule": "59 23 * * 0"
+    },
+    {
+      "path": "/api/admin/jobs/performance-recompute",
+      "schedule": "10 3 * * *"
+    },
+    {
+      "path": "/api/admin/jobs/menu-quality-recompute",
+      "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/admin/jobs/auto-hide-products",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/admin/jobs/cash-collections-compute",
+      "schedule": "30 5 * * 1"
+    },
+    {
+      "path": "/api/admin/jobs/pii-redact",
+      "schedule": "50 4 * * 1"
+    },
+    {
+      "path": "/api/admin/jobs/finance-anomalies",
+      "schedule": "45 5 * * 1"
+    },
+    {
+      "path": "/api/admin/jobs/finance-alerts",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/admin/jobs/statements-precompute",
+      "schedule": "58 23 * * 0"
+    },
+    {
+      "path": "/api/admin/jobs/backup-export?kind=all&sinceDays=7",
+      "schedule": "30 2 * * 0"
     }
   ]
 }
-

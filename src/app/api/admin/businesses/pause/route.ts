@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 
     await dbConnect();
     const business = await Business.findById(new mongoose.Types.ObjectId(businessId))
-      .select("paused pausedReason pausedAt health")
+      .select("paused pausedReason pausedAt health performance")
       .lean();
     if (!business) {
       return fail("NOT_FOUND", "Business not found.", 404);
@@ -45,6 +45,14 @@ export async function GET(req: Request) {
         slowAcceptCount30d: 0,
         lastHealthUpdateAt: null,
         lastHealthResetAt: null,
+      },
+      performance: (business as { performance?: Record<string, unknown> }).performance || {
+        score: 50,
+        tier: "bronze",
+        updatedAt: null,
+        overrideBoost: 0,
+        overrideTier: null,
+        note: null,
       },
     });
   } catch (e: unknown) {
@@ -122,4 +130,3 @@ export async function POST(req: Request) {
     return fail(err.code || "SERVER_ERROR", err.message || "Could not update pause status.", err.status || 500);
   }
 }
-

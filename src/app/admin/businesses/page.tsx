@@ -3,6 +3,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import RunPerformanceRecomputeButton from "./RunPerformanceRecomputeButton";
+import PerformanceOverrideForm from "./PerformanceOverrideForm";
 
 type Business = {
   id: string;
@@ -21,6 +23,22 @@ type Business = {
     slowAcceptCount30d?: number;
     lastHealthUpdateAt?: string | null;
     lastHealthResetAt?: string | null;
+  };
+  performance?: {
+    score?: number;
+    tier?: "gold" | "silver" | "bronze" | "probation";
+    updatedAt?: string | null;
+    overrideBoost?: number;
+    overrideTier?: "gold" | "silver" | "bronze" | "probation" | null;
+    note?: string | null;
+  };
+  deliveryPolicy?: {
+    mode?: "self_delivery";
+    courierName?: string | null;
+    courierPhone?: string | null;
+    publicNoteEs?: string | null;
+    instructionsEs?: string | null;
+    updatedAt?: string | null;
   };
   subscription: {
     status: "trial" | "active" | "past_due" | "suspended";
@@ -57,6 +75,23 @@ function withDefaults(row: Business): Business {
       slowAcceptCount30d: Number(row.health?.slowAcceptCount30d || 0),
       lastHealthUpdateAt: row.health?.lastHealthUpdateAt || null,
       lastHealthResetAt: row.health?.lastHealthResetAt || null,
+    },
+    performance: {
+      score: Number(row.performance?.score ?? 50),
+      tier: row.performance?.tier || "bronze",
+      updatedAt: row.performance?.updatedAt || null,
+      overrideBoost: Number(row.performance?.overrideBoost || 0),
+      overrideTier: row.performance?.overrideTier || null,
+      note: row.performance?.note || null,
+    },
+    deliveryPolicy: {
+      mode: "self_delivery",
+      courierName: String(row.deliveryPolicy?.courierName || "").trim() || null,
+      courierPhone: String(row.deliveryPolicy?.courierPhone || "").trim() || null,
+      publicNoteEs:
+        String(row.deliveryPolicy?.publicNoteEs || "").trim() || "Entrega manejada por el negocio",
+      instructionsEs: String(row.deliveryPolicy?.instructionsEs || "").trim() || null,
+      updatedAt: row.deliveryPolicy?.updatedAt || null,
     },
   };
 }
@@ -123,6 +158,7 @@ export default function AdminBusinessesPage() {
             pausedReason: String(extraJson.pausedReason || ""),
             pausedAt: extraJson.pausedAt || null,
             health: extraJson.health || row.health,
+            performance: extraJson.performance || row.performance,
           });
         } catch {
           return withDefaults(row);
@@ -261,6 +297,56 @@ export default function AdminBusinessesPage() {
     await load();
   }
 
+  async function updateDeliveryPolicy(business: Business) {
+    if (!key) return;
+    const current = business.deliveryPolicy || {};
+    const courierName = window.prompt(
+      "Nombre del mensajero/courier (opcional):",
+      String(current.courierName || "")
+    );
+    if (courierName == null) return;
+    const courierPhone = window.prompt(
+      "Telefono del mensajero/courier (opcional):",
+      String(current.courierPhone || "")
+    );
+    if (courierPhone == null) return;
+    const publicNoteEs = window.prompt(
+      "Nota publica para clientes (opcional):",
+      String(current.publicNoteEs || "Entrega manejada por el negocio")
+    );
+    if (publicNoteEs == null) return;
+    const instructionsEs = window.prompt(
+      "Instrucciones internas (opcional):",
+      String(current.instructionsEs || "")
+    );
+    if (instructionsEs == null) return;
+
+    setActionLoadingId(business.id);
+    setError("");
+    const res = await fetch(
+      `/api/admin/businesses/delivery-policy?key=${encodeURIComponent(key)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: business.id,
+          mode: "self_delivery",
+          courierName: courierName.slice(0, 60),
+          courierPhone: courierPhone.slice(0, 30),
+          publicNoteEs: publicNoteEs.slice(0, 120),
+          instructionsEs: instructionsEs.slice(0, 280),
+        }),
+      }
+    );
+    const json = await res.json();
+    setActionLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not update delivery policy");
+      return;
+    }
+    await load();
+  }
+
   useEffect(() => {
     load();
   }, [query, ready]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -329,7 +415,7 @@ export default function AdminBusinessesPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Business List</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {(["all", "paused", "at-risk"] as RiskFilter[]).map((option) => (
                 <button
                   key={option}
@@ -341,6 +427,7 @@ export default function AdminBusinessesPage() {
                   {option}
                 </button>
               ))}
+              <RunPerformanceRecomputeButton adminKey={key} onDone={load} />
             </div>
           </div>
           {lastOnboarding ? (
@@ -354,8 +441,13 @@ export default function AdminBusinessesPage() {
                 <tr className="text-left text-slate-500">
                   <th className="pb-2">Name</th>
                   <th className="pb-2">Type</th>
+                  <th className="pb-2">Delivery</th>
                   <th className="pb-2">Demo</th>
                   <th className="pb-2">Paused</th>
+                  <th className="pb-2">Score</th>
+                  <th className="pb-2">Tier</th>
+                  <th className="pb-2">UpdatedAt</th>
+                  <th className="pb-2">Override</th>
                   <th className="pb-2">Complaints</th>
                   <th className="pb-2">Cancels(30d)</th>
                   <th className="pb-2">SlowAccept(30d)</th>
@@ -372,6 +464,22 @@ export default function AdminBusinessesPage() {
                       <div className="text-xs text-slate-500">{b.address}</div>
                     </td>
                     <td className="py-2">{b.type}</td>
+                    <td className="py-2">
+                      <div className="grid gap-1 text-xs">
+                        <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold w-fit">
+                          Self-delivery
+                        </span>
+                        <span className="text-slate-600">
+                          Courier: {String(b.deliveryPolicy?.courierName || "-")}
+                        </span>
+                        <span className="text-slate-600">
+                          Phone: {String(b.deliveryPolicy?.courierPhone || "-")}
+                        </span>
+                        <span className="text-slate-500">
+                          Nota: {String(b.deliveryPolicy?.publicNoteEs || "Entrega manejada por el negocio")}
+                        </span>
+                      </div>
+                    </td>
                     <td className="py-2">
                       {b.isDemo ? (
                         <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
@@ -393,6 +501,33 @@ export default function AdminBusinessesPage() {
                         <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
                           Active
                         </span>
+                      )}
+                    </td>
+                    <td className="py-2">{Number(b.performance?.score ?? 50)}</td>
+                    <td className="py-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
+                        {String(b.performance?.tier || "bronze")}
+                      </span>
+                    </td>
+                    <td className="py-2 text-xs text-slate-500">
+                      {b.performance?.updatedAt ? new Date(b.performance.updatedAt).toLocaleString("es-DO") : "-"}
+                    </td>
+                    <td className="py-2">
+                      {Number(b.performance?.overrideBoost || 0) !== 0 || b.performance?.overrideTier ? (
+                        <div className="grid gap-1">
+                          <span className="inline-flex w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                            Override
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            boost {Number(b.performance?.overrideBoost || 0)}
+                            {b.performance?.overrideTier ? ` | tier ${b.performance.overrideTier}` : ""}
+                          </span>
+                          {b.performance?.note ? (
+                            <span className="text-xs text-slate-500">{b.performance.note}</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
                     <td className="py-2">
@@ -447,6 +582,21 @@ export default function AdminBusinessesPage() {
                         >
                           Reset Health
                         </button>
+                        <button
+                          onClick={() => updateDeliveryPolicy(b)}
+                          disabled={actionLoadingId === b.id}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
+                        >
+                          Delivery Policy
+                        </button>
+                        <PerformanceOverrideForm
+                          adminKey={key}
+                          businessId={b.id}
+                          initialBoost={Number(b.performance?.overrideBoost || 0)}
+                          initialTier={b.performance?.overrideTier || null}
+                          initialNote={String(b.performance?.note || "")}
+                          onSaved={load}
+                        />
                         <a
                           href={`/api/admin/businesses/audit?key=${encodeURIComponent(key)}&businessId=${encodeURIComponent(b.id)}&limit=50`}
                           className="rounded border border-slate-300 px-2 py-1 text-center text-xs font-semibold"

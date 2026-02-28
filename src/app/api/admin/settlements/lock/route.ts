@@ -5,6 +5,7 @@ import { requireAdminKey } from "@/lib/adminAuth";
 import { logRequest } from "@/lib/logger";
 import { Settlement } from "@/models/Settlement";
 import { SettlementAudit } from "@/models/SettlementAudit";
+import { settlementHashV1 } from "@/lib/integrity";
 
 type ApiError = Error & { status?: number; code?: string };
 
@@ -19,7 +20,13 @@ type SettlementLean = {
   businessId: mongoose.Types.ObjectId;
   weekKey: string;
   status: "pending" | "collected" | "locked";
+  ordersCount?: number;
+  grossSubtotal?: number;
   feeTotal?: number;
+  integrityHash?: string | null;
+  integrityHashAlgo?: "sha256";
+  integrityHashAt?: Date | null;
+  integrityHashVersion?: number;
   receiptRef?: string;
   collectionMethod?: "cash" | "transfer" | "other";
   lockedAt?: Date | null;
@@ -95,6 +102,13 @@ export async function POST(req: Request) {
     }
 
     const lockedAt = new Date();
+    const integrityHash = settlementHashV1({
+      businessId: String(existing.businessId),
+      weekKey: String(existing.weekKey),
+      ordersCount: Number(existing.ordersCount || 0),
+      grossSubtotal: Number(existing.grossSubtotal || 0),
+      feeTotal: Number(existing.feeTotal || 0),
+    });
     const updated = await Settlement.findOneAndUpdate(
       {
         businessId: objectBusinessId,
@@ -106,6 +120,10 @@ export async function POST(req: Request) {
           status: "locked",
           lockedAt,
           lockedBy: "admin",
+          integrityHash,
+          integrityHashAlgo: "sha256",
+          integrityHashVersion: 1,
+          integrityHashAt: lockedAt,
         },
       },
       { returnDocument: "after" }

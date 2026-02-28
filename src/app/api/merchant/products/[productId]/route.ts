@@ -14,6 +14,7 @@ type PatchBody = {
   description?: string;
   imageUrl?: string;
   isAvailable?: boolean;
+  unavailableReason?: "out_of_stock" | "busy" | "closed" | null;
 };
 
 export async function PATCH(
@@ -38,7 +39,13 @@ export async function PATCH(
     if (body.category !== undefined) update.category = String(body.category || "").trim();
     if (body.description !== undefined) update.description = String(body.description || "").trim();
     if (body.imageUrl !== undefined) update.imageUrl = String(body.imageUrl || "").trim();
-    if (body.isAvailable !== undefined) update.isAvailable = Boolean(body.isAvailable);
+    if (body.isAvailable !== undefined) {
+      const nextIsAvailable = Boolean(body.isAvailable);
+      update.isAvailable = nextIsAvailable;
+      update.unavailableUpdatedAt = new Date();
+      update.unavailableReason = nextIsAvailable ? null : body.unavailableReason || "out_of_stock";
+      update.stockHint = nextIsAvailable ? "in_stock" : "out";
+    }
 
     await dbConnect();
     await requireMerchantBusinessAvailable(session.businessId);

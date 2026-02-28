@@ -14,6 +14,7 @@ type ProductBody = {
   description?: string;
   imageUrl?: string;
   isAvailable?: boolean;
+  unavailableReason?: "out_of_stock" | "busy" | "closed" | null;
 };
 
 export async function GET(req: Request) {
@@ -51,6 +52,9 @@ export async function POST(req: Request) {
       description: String(body.description || "").trim(),
       imageUrl: String(body.imageUrl || "").trim(),
       isAvailable: body.isAvailable !== false,
+      unavailableReason: body.isAvailable === false ? body.unavailableReason || "out_of_stock" : null,
+      unavailableUpdatedAt: new Date(),
+      stockHint: body.isAvailable === false ? "out" : "in_stock",
     });
     return ok({ product: created }, 201);
   } catch (e: unknown) {

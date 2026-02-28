@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type Settlement = {
   _id: string;
-  businessId: string;
+  businessId: string | { $oid?: string };
   businessName: string;
   weekKey: string;
   status: "pending" | "collected" | "locked";
@@ -20,6 +20,10 @@ type Settlement = {
   receiptPhotoUrl?: string;
   lockedAt?: string;
   lockedBy?: string;
+  integrityHash?: string | null;
+  integrityHashAlgo?: "sha256" | null;
+  integrityHashAt?: string | null;
+  integrityHashVersion?: number | null;
 };
 
 type ProofForm = {
@@ -29,6 +33,40 @@ type ProofForm = {
   receiptPhotoUrl: string;
 };
 
+function isProofComplete(settlement: Settlement) {
+  if (settlement.status !== "collected" && settlement.status !== "locked") return true;
+  return (
+    Boolean(String(settlement.receiptRef || "").trim()) ||
+    Boolean(String(settlement.receiptPhotoUrl || "").trim()) ||
+    settlement.collectionMethod === "transfer"
+  );
+}
+
+async function sha256Hex(input: string) {
+  if (!globalThis.crypto?.subtle) return null;
+  const encoded = new TextEncoder().encode(input);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", encoded);
+  const bytes = Array.from(new Uint8Array(digest));
+  return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function settlementHashPayload(row: Settlement) {
+  const businessId = normalizeBusinessId(row.businessId);
+  return [
+    businessId.trim(),
+    String(row.weekKey || "").trim(),
+    String(Math.trunc(Number(row.ordersCount || 0))),
+    String(Number(row.grossSubtotal || 0)),
+    String(Number(row.feeTotal || 0)),
+  ].join("|");
+}
+
+function normalizeBusinessId(value: Settlement["businessId"]) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && typeof value.$oid === "string") return value.$oid;
+  return String(value || "");
+}
+
 export default function AdminSettlementsPage() {
   const [key, setKey] = useState("");
   const [ready, setReady] = useState(false);
@@ -36,6 +74,7 @@ export default function AdminSettlementsPage() {
   const [rows, setRows] = useState<Settlement[]>([]);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
+  const [integrityMatchesById, setIntegrityMatchesById] = useState<Record<string, boolean | null>>({});
   const [proofForms, setProofForms] = useState<Record<string, ProofForm>>({});
 
   useEffect(() => {
@@ -104,7 +143,7 @@ export default function AdminSettlementsPage() {
       collectorName?: string;
       receiptPhotoUrl?: string;
     } = {
-      businessId: row.businessId,
+      businessId: normalizeBusinessId(row.businessId),
       weekKey: row.weekKey,
       receiptRef,
       collectionMethod: current.collectionMethod || "cash",
@@ -143,7 +182,7 @@ export default function AdminSettlementsPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        businessId: row.businessId,
+        businessId: normalizeBusinessId(row.businessId),
         weekKey: row.weekKey,
         confirm: "LOCK",
       }),
@@ -160,6 +199,31 @@ export default function AdminSettlementsPage() {
   useEffect(() => {
     load();
   }, [query, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function evaluateIntegrity() {
+      const next: Record<string, boolean | null> = {};
+      for (const row of rows) {
+        const storedHash = String(row.integrityHash || "").trim();
+        if (!storedHash) {
+          next[row._id] = null;
+          continue;
+        }
+        const expectedHash = await sha256Hex(settlementHashPayload(row));
+        next[row._id] = expectedHash ? expectedHash === storedHash : null;
+      }
+      if (!cancelled) {
+        setIntegrityMatchesById(next);
+      }
+    }
+
+    evaluateIntegrity();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows]);
 
   if (!ready) return null;
 
@@ -233,12 +297,22 @@ export default function AdminSettlementsPage() {
                   >
                     {r.status}
                   </span>
+                  {!isProofComplete(r) ? (
+                    <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                      PROOF MISSING
+                    </span>
+                  ) : null}
+                  {integrityMatchesById[r._id] === false ? (
+                    <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                      INTEGRITY FAIL
+                    </span>
+                  ) : null}
                 </td>
                 <td className="py-2">
                   <div className="mb-2 flex flex-wrap gap-2">
                     <Link
                       href={`/admin/settlements/recompute?key=${encodeURIComponent(key)}&businessId=${encodeURIComponent(
-                        r.businessId
+                        normalizeBusinessId(r.businessId)
                       )}&weekKey=${encodeURIComponent(r.weekKey)}`}
                       className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold"
                       target="_blank"

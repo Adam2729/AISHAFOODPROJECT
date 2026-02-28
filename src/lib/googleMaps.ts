@@ -28,16 +28,10 @@ function getGoogleKey() {
   return key || null;
 }
 
-export async function geocodeAddress(address: string, city = "Santo Domingo"): Promise<LatLng | null> {
-  const key = getGoogleKey();
-  if (!key) return null;
-
-  const normalizedAddress = address.trim();
-  if (normalizedAddress.length < 6) return null;
-
-  const query = `${normalizedAddress}, ${city}, Republica Dominicana`;
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
-
+async function geocodeQuery(query: string, key: string): Promise<LatLng | null> {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+    query
+  )}&key=${encodeURIComponent(key)}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) return null;
 
@@ -45,15 +39,36 @@ export async function geocodeAddress(address: string, city = "Santo Domingo"): P
     status?: string;
     results?: { geometry?: { location?: { lat?: number; lng?: number } } }[];
   };
-
-  if (data.status !== "OK" || !Array.isArray(data.results) || data.results.length === 0) return null;
+  if (data.status !== "OK" || !Array.isArray(data.results) || data.results.length === 0) {
+    return null;
+  }
 
   const loc = data.results[0]?.geometry?.location;
   const lat = Number(loc?.lat);
   const lng = Number(loc?.lng);
   if (!isValidLatLng(lat, lng)) return null;
-
   return { lat, lng };
+}
+
+export async function geocodeAddress(address: string, city = "Santo Domingo"): Promise<LatLng | null> {
+  const key = getGoogleKey();
+  if (!key) return null;
+
+  const normalizedAddress = address.trim().replace(/\s+/g, " ");
+  if (normalizedAddress.length < 3) return null;
+  const normalizedCity = String(city || "").trim().replace(/\s+/g, " ");
+
+  const queries = [
+    `${normalizedAddress}, ${normalizedCity || "Santo Domingo"}, Republica Dominicana`,
+    `${normalizedAddress}, Santo Domingo, Republica Dominicana`,
+    `${normalizedAddress}, Republica Dominicana`,
+  ];
+
+  for (const query of queries) {
+    const result = await geocodeQuery(query, key);
+    if (result) return result;
+  }
+  return null;
 }
 
 export async function getDistanceMatrix(origin: LatLng, destination: LatLng): Promise<DistanceMatrixResult | null> {

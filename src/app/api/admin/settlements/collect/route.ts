@@ -6,6 +6,7 @@ import { logRequest } from "@/lib/logger";
 import { Settlement } from "@/models/Settlement";
 import { Order } from "@/models/Order";
 import { SettlementAudit } from "@/models/SettlementAudit";
+import { settlementHashV1 } from "@/lib/integrity";
 
 type ApiError = Error & { status?: number; code?: string };
 
@@ -23,7 +24,13 @@ type SettlementLean = {
   businessId: mongoose.Types.ObjectId;
   weekKey: string;
   status: "pending" | "collected" | "locked";
+  ordersCount?: number;
+  grossSubtotal?: number;
   feeTotal?: number;
+  integrityHash?: string | null;
+  integrityHashAlgo?: "sha256";
+  integrityHashAt?: Date | null;
+  integrityHashVersion?: number;
   receiptRef?: string;
   collectorName?: string;
   collectionMethod?: "cash" | "transfer" | "other";
@@ -130,6 +137,13 @@ export async function POST(req: Request) {
         status: "collected",
       });
     }
+    const integrityHash = settlementHashV1({
+      businessId: String(existing.businessId),
+      weekKey: String(existing.weekKey),
+      ordersCount: Number(existing.ordersCount || 0),
+      grossSubtotal: Number(existing.grossSubtotal || 0),
+      feeTotal: Number(existing.feeTotal || 0),
+    });
 
     const settlement = await Settlement.findOneAndUpdate(
       { businessId: objectBusinessId, weekKey, status: "pending" },
@@ -141,6 +155,10 @@ export async function POST(req: Request) {
           collectorName,
           collectionMethod,
           receiptPhotoUrl,
+          integrityHash,
+          integrityHashAlgo: "sha256",
+          integrityHashVersion: 1,
+          integrityHashAt: collectedAt,
         },
       },
       { returnDocument: "after" }
@@ -174,7 +192,12 @@ export async function POST(req: Request) {
     }
 
     await Order.updateMany(
-      { businessId: objectBusinessId, "settlement.weekKey": weekKey },
+      {
+        businessId: objectBusinessId,
+        "settlement.weekKey": weekKey,
+        status: "delivered",
+        "settlement.counted": true,
+      },
       {
         $set: {
           "settlement.status": "collected",

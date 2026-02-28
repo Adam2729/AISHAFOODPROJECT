@@ -49,11 +49,13 @@ async function requestJson(
     method?: string;
     body?: JsonRecord;
     cookie?: string;
+    headers?: Record<string, string>;
   }
 ) {
   const method = options?.method || "GET";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...(options?.headers || {}),
   };
   if (options?.cookie) headers.Cookie = options.cookie;
 
@@ -217,6 +219,43 @@ async function main() {
   );
   assert(!!countedEvent, "ORDER_COUNTED audit event missing.");
 
+  const profilePhone = "8095557878";
+  const session = await requestJson("/api/public/user/session", {
+    method: "POST",
+    body: { phone: profilePhone },
+  });
+  assert(session.res.ok, "User session creation failed in suite.");
+  const sessionToken = String((session.json.sessionToken as string) || "");
+  assert(!!sessionToken, "User session token missing in suite.");
+
+  const authHeaders = { "x-user-session": sessionToken };
+  const profileGet = await requestJson("/api/user/profile", {
+    headers: authHeaders,
+  });
+  assert(profileGet.res.ok, "User profile GET failed in suite.");
+
+  const profilePatch = await requestJson("/api/user/profile", {
+    method: "PATCH",
+    headers: authHeaders,
+    body: {
+      displayName: "Smoke Suite User",
+      city: "Santo Domingo",
+      preferredLanguage: "es",
+      marketingOptIn: true,
+      favoriteCuisines: ["empanadas", "picapollo"],
+    },
+  });
+  assert(profilePatch.res.ok, "User profile PATCH failed in suite.");
+
+  const profileCheck = await requestJson("/api/user/profile", {
+    headers: authHeaders,
+  });
+  assert(profileCheck.res.ok, "User profile verification GET failed in suite.");
+  assert(
+    String(((profileCheck.json.profile as JsonRecord)?.displayName as string) || "") === "Smoke Suite User",
+    "User profile displayName mismatch in suite."
+  );
+
   console.log("Smoke suite passed.");
   console.log(
     JSON.stringify(
@@ -226,6 +265,7 @@ async function main() {
         orderId,
         orderNumber,
         weekKey,
+        userProfileId: String(((profileCheck.json.profile as JsonRecord)?.id as string) || ""),
       },
       null,
       2

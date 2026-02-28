@@ -18,6 +18,18 @@ type MetricsResponse = {
     activeBusinesses: number;
     churnedBusinesses: number;
     repeatCustomerRate: number;
+    todayUniqueCustomers: number;
+    weekUniqueCustomers: number;
+    weekRepeatCustomers: number;
+    weekRepeatRate: number;
+    weekPromoOrders: number;
+    weekPromoDiscountTotal: number;
+    weekNetSubtotal: number;
+    weekCommissionTotal: number;
+    promosEnabled?: boolean;
+    promoBudgetWeeklyRdp?: number;
+    promoDiscountSpentThisWeekRdp?: number;
+    promoBudgetRemainingThisWeekRdp?: number;
   };
   topBusinesses?: { businessId: string; name: string; orders: number; subtotal: number }[];
   error?: { message?: string } | string;
@@ -86,6 +98,9 @@ export default function AdminDashboardPage() {
           <Card title="Weekly Orders Growth" value={`${data.kpis.ordersWeeklyGrowthPct.toFixed(2)}%`} />
           <Card title="Weekly Fee Growth" value={`${data.kpis.commissionWeeklyGrowthPct.toFixed(2)}%`} />
           <Card title="Repeat Customer Rate" value={`${(data.kpis.repeatCustomerRate * 100).toFixed(2)}%`} />
+          <Card title="Week Repeat Rate" value={`${(data.kpis.weekRepeatRate * 100).toFixed(2)}%`} />
+          <Card title="Week Promo Orders" value={data.kpis.weekPromoOrders} />
+          <Card title="Week Promo Discounts" value={`RD$ ${data.kpis.weekPromoDiscountTotal.toFixed(2)}`} />
         </section>
       ) : null}
 
@@ -100,8 +115,23 @@ export default function AdminDashboardPage() {
       ) : null}
 
       <section className="mt-6 flex flex-wrap gap-3">
+        <Link href={`/admin/ops?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
+          Ops Center
+        </Link>
         <Link href={`/admin/businesses?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
           Manage Businesses
+        </Link>
+        <Link href={`/admin/promos?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
+          Manage Promos
+        </Link>
+        <Link href={`/admin/onboarding?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
+          Merchant Onboarding
+        </Link>
+        <Link href={`/admin/audit?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
+          Audit Center
+        </Link>
+        <Link href={`/admin/drivers?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
+          Drivers
         </Link>
         <Link href={`/admin/settlements?key=${encodeURIComponent(key)}`} className="rounded-lg border px-4 py-2">
           Weekly Settlements
@@ -115,6 +145,35 @@ export default function AdminDashboardPage() {
           </a>
         ) : null}
       </section>
+
+      {data?.kpis ? (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-lg font-semibold">Promo Controls Snapshot</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card title="Promos Enabled" value={data.kpis.promosEnabled ? "ON" : "OFF"} />
+            <Card
+              title="Promo Budget Weekly"
+              value={`RD$ ${Number(data.kpis.promoBudgetWeeklyRdp || 0).toFixed(2)}`}
+            />
+            <Card
+              title="Promo Spent This Week"
+              value={`RD$ ${Number(data.kpis.promoDiscountSpentThisWeekRdp || 0).toFixed(2)}`}
+            />
+            <Card
+              title="Promo Remaining"
+              value={`RD$ ${Number(data.kpis.promoBudgetRemainingThisWeekRdp || 0).toFixed(2)}`}
+            />
+          </div>
+          <div className="mt-3">
+            <Link
+              href={`/admin/ops?key=${encodeURIComponent(key)}`}
+              className="inline-flex rounded-lg border px-4 py-2 text-sm font-semibold"
+            >
+              Open Full Ops Controls
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       {data?.topBusinesses?.length ? (
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
