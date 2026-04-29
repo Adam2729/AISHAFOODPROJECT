@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+const boolFromEnv = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  }
+
+  return value;
+}, z.boolean());
+
 const schema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   ADMIN_KEY: z.string().min(1, "ADMIN_KEY is required"),
@@ -9,16 +22,16 @@ const schema = z.object({
   BAMAKO_BASE_LAT: z.coerce.number().optional(),
   BAMAKO_BASE_LNG: z.coerce.number().optional(),
   MAX_RADIUS_KM: z.coerce.number().positive().default(8),
-  MAINTENANCE_MODE: z.coerce.boolean().default(false),
+  MAINTENANCE_MODE: boolFromEnv.default(false),
   NODE_ENV: z.enum(["development", "production", "test"]).optional(),
-  DEV_ALLOW_ORDER_LOCATION_BYPASS: z.coerce.boolean().default(false),
+  DEV_ALLOW_ORDER_LOCATION_BYPASS: boolFromEnv.default(false),
 
   COMMISSION_RATE_DEFAULT: z.coerce.number().default(0.08),
   SUBSCRIPTION_MONTHLY_RDP: z.coerce.number().default(1500),
   TRIAL_DAYS: z.coerce.number().default(90),
   GRACE_DAYS: z.coerce.number().default(14),
   LAUNCH_CITY_CODE: z.string().default("BKO"),
-  REFERRALS_ENABLED: z.coerce.boolean().default(false),
+  REFERRALS_ENABLED: boolFromEnv.default(false),
   REFERRAL_NEW_CUSTOMER_BONUS_RDP: z.coerce.number().default(50),
   REFERRAL_REFERRER_BONUS_RDP: z.coerce.number().default(50),
   PROMO_MAX_PERCENT: z.coerce.number().default(50),
@@ -37,9 +50,9 @@ const schema = z.object({
   DRIVER_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   PII_HASH_SECRET: z.string().optional(),
   PII_PHONE_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
-  ALLOW_SEED: z.coerce.boolean().default(false),
-  MULTICITY_ENABLE_BAMAKO: z.coerce.boolean().default(true),
-  ALLOW_ADMIN_PAY_DISABLED_CITY: z.coerce.boolean().default(false),
+  ALLOW_SEED: boolFromEnv.default(false),
+  MULTICITY_ENABLE_BAMAKO: boolFromEnv.default(true),
+  ALLOW_ADMIN_PAY_DISABLED_CITY: boolFromEnv.default(false),
 });
 
 const parsed = schema.safeParse({
