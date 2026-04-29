@@ -1,0 +1,117 @@
+import type { CityLean } from "@/lib/city";
+
+export const PAYMENT_METHOD_VALUES = ["cash", "mobile_money", "wallet", "card"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHOD_VALUES)[number];
+
+export const PAYMENT_STATUS_VALUES = [
+  "pending",
+  "authorized",
+  "paid",
+  "failed",
+  "refunded",
+] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUS_VALUES)[number];
+
+export type OrderPaymentStatus = PaymentStatus | "unpaid";
+
+export function normalizePaymentMethod(value: unknown, fallback: PaymentMethod = "cash"): PaymentMethod {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "cash") return "cash";
+  if (normalized === "mobile_money" || normalized === "mobilemoney") return "mobile_money";
+  if (normalized === "wallet") return "wallet";
+  if (normalized === "card") return "card";
+  return fallback;
+}
+
+export function normalizePaymentStatus(value: unknown, fallback: PaymentStatus = "pending"): PaymentStatus {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "unpaid" || !normalized) return fallback;
+  if (normalized === "pending") return "pending";
+  if (normalized === "authorized") return "authorized";
+  if (normalized === "paid") return "paid";
+  if (normalized === "failed") return "failed";
+  if (normalized === "refunded") return "refunded";
+  return fallback;
+}
+
+export function normalizeLegacyPaymentStatus(value: unknown): OrderPaymentStatus {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "unpaid") return "unpaid";
+  return normalizePaymentStatus(normalized);
+}
+
+export function paymentMethodLabel(method: unknown) {
+  switch (normalizePaymentMethod(method)) {
+    case "mobile_money":
+      return "Mobile money";
+    case "wallet":
+      return "Wallet";
+    case "card":
+      return "Card";
+    default:
+      return "Cash on delivery";
+  }
+}
+
+export function paymentStatusLabel(status: unknown) {
+  const normalized = normalizePaymentStatus(status);
+  switch (normalized) {
+    case "authorized":
+      return "Authorized";
+    case "paid":
+      return "Paid";
+    case "failed":
+      return "Failed";
+    case "refunded":
+      return "Refunded";
+    default:
+      return "Pending";
+  }
+}
+
+function normalizeCityPaymentMethod(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+export function citySupportsPaymentMethod(
+  city: Partial<Pick<CityLean, "paymentMethods">>,
+  method: PaymentMethod
+) {
+  const methods = Array.isArray(city.paymentMethods) ? city.paymentMethods : [];
+  if (!methods.length) {
+    return method === "cash";
+  }
+
+  const normalized = methods.map(normalizeCityPaymentMethod);
+  if (method === "cash") {
+    return normalized.includes("cash");
+  }
+  if (method === "mobile_money") {
+    return normalized.some((value) =>
+      ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney"].includes(value)
+    );
+  }
+  if (method === "wallet") {
+    return normalized.includes("wallet");
+  }
+  if (method === "card") {
+    return normalized.includes("card");
+  }
+  return false;
+}
+
+export function getInitialPaymentProvider(method: PaymentMethod, provider?: unknown) {
+  const trimmed = String(provider || "").trim();
+  if (trimmed) return trimmed;
+  if (method === "mobile_money") return "manual_mobile_money";
+  return null;
+}

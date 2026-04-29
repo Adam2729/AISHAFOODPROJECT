@@ -1,0 +1,655 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import RunPerformanceRecomputeButton from "./RunPerformanceRecomputeButton";
+import PerformanceOverrideForm from "./PerformanceOverrideForm";
+
+type Business = {
+  id: string;
+  name: string;
+  type: "restaurant" | "colmado";
+  isDemo?: boolean;
+  phone: string;
+  address: string;
+  commissionRate: number;
+  paused?: boolean;
+  pausedReason?: string;
+  pausedAt?: string | null;
+  health?: {
+    complaintsCount?: number;
+    cancelsCount30d?: number;
+    slowAcceptCount30d?: number;
+    lastHealthUpdateAt?: string | null;
+    lastHealthResetAt?: string | null;
+  };
+  performance?: {
+    score?: number;
+    tier?: "gold" | "silver" | "bronze" | "probation";
+    updatedAt?: string | null;
+    overrideBoost?: number;
+    overrideTier?: "gold" | "silver" | "bronze" | "probation" | null;
+    note?: string | null;
+  };
+  deliveryPolicy?: {
+    mode?: "self_delivery";
+    courierName?: string | null;
+    courierPhone?: string | null;
+    publicNoteEs?: string | null;
+    instructionsEs?: string | null;
+    updatedAt?: string | null;
+  };
+  subscription: {
+    status: "trial" | "active" | "past_due" | "suspended";
+    daysRemaining: number;
+    graceDaysRemaining: number;
+  };
+};
+
+type RiskFilter = "all" | "paused" | "at-risk";
+const SESSION_ADMIN_KEY = "__session__";
+
+const initialForm = {
+  type: "restaurant",
+  isDemo: false,
+  name: "",
+  phone: "",
+  whatsapp: "",
+  address: "",
+  lat: "",
+  lng: "",
+  logoUrl: "",
+  commissionRate: "0.08",
+  pin: "",
+};
+
+function withDefaults(row: Business): Business {
+  return {
+    ...row,
+    paused: Boolean(row.paused),
+    pausedReason: String(row.pausedReason || ""),
+    pausedAt: row.pausedAt || null,
+    health: {
+      complaintsCount: Number(row.health?.complaintsCount || 0),
+      cancelsCount30d: Number(row.health?.cancelsCount30d || 0),
+      slowAcceptCount30d: Number(row.health?.slowAcceptCount30d || 0),
+      lastHealthUpdateAt: row.health?.lastHealthUpdateAt || null,
+      lastHealthResetAt: row.health?.lastHealthResetAt || null,
+    },
+    performance: {
+      score: Number(row.performance?.score ?? 50),
+      tier: row.performance?.tier || "bronze",
+      updatedAt: row.performance?.updatedAt || null,
+      overrideBoost: Number(row.performance?.overrideBoost || 0),
+      overrideTier: row.performance?.overrideTier || null,
+      note: row.performance?.note || null,
+    },
+    deliveryPolicy: {
+      mode: "self_delivery",
+      courierName: String(row.deliveryPolicy?.courierName || "").trim() || null,
+      courierPhone: String(row.deliveryPolicy?.courierPhone || "").trim() || null,
+      publicNoteEs:
+        String(row.deliveryPolicy?.publicNoteEs || "").trim() || "Entrega manejada por el negocio",
+      instructionsEs: String(row.deliveryPolicy?.instructionsEs || "").trim() || null,
+      updatedAt: row.deliveryPolicy?.updatedAt || null,
+    },
+  };
+}
+
+function isAtRisk(b: Business) {
+  const complaints = Number(b.health?.complaintsCount || 0);
+  const cancels = Number(b.health?.cancelsCount30d || 0);
+  const slowAccept = Number(b.health?.slowAcceptCount30d || 0);
+  return Boolean(b.paused) || complaints >= 3 || cancels >= 5 || slowAccept >= 5;
+}
+
+export default function AdminBusinessesPage() {
+  const [key, setKey] = useState("");
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [ready, setReady] = useState(false);
+  const [rows, setRows] = useState<Business[]>([]);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [pinLoadingId, setPinLoadingId] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState("");
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
+  const [complaintsDraft, setComplaintsDraft] = useState<Record<string, string>>({});
+  const [lastOnboarding, setLastOnboarding] = useState<{
+    businessName: string;
+    temporaryPin: string;
+  } | null>(null);
+  const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function bootstrap() {
+      try {
+        const res = await fetch("/api/admin/session", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as { authenticated?: boolean } | null;
+        const allowed = Boolean(res.ok && json?.authenticated);
+        if (!mounted) return;
+        setAuthenticated(allowed);
+        if (allowed) {
+          setKey(SESSION_ADMIN_KEY);
+        }
+      } catch {
+        if (!mounted) return;
+        setAuthenticated(false);
+      } finally {
+        if (mounted) setReady(true);
+      }
+    }
+
+    bootstrap().catch(() => null);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredRows = useMemo(() => {
+    if (riskFilter === "paused") return rows.filter((b) => Boolean(b.paused));
+    if (riskFilter === "at-risk") return rows.filter((b) => isAtRisk(b));
+    return rows;
+  }, [rows, riskFilter]);
+
+  async function load() {
+    if (!ready || !key) return;
+    setError("");
+    const res = await fetch("/api/admin/businesses");
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Failed to load businesses");
+      return;
+    }
+
+    const baseRows = Array.isArray(json.businesses) ? (json.businesses as Business[]) : [];
+    const hydrated = await Promise.all(
+      baseRows.map(async (row) => {
+        try {
+          const extraRes = await fetch(
+            `/api/admin/businesses/pause?businessId=${encodeURIComponent(row.id)}`
+          );
+          const extraJson = await extraRes.json();
+          if (!extraRes.ok || !extraJson?.ok) return withDefaults(row);
+          return withDefaults({
+            ...row,
+            paused: Boolean(extraJson.paused),
+            pausedReason: String(extraJson.pausedReason || ""),
+            pausedAt: extraJson.pausedAt || null,
+            health: extraJson.health || row.health,
+            performance: extraJson.performance || row.performance,
+          });
+        } catch {
+          return withDefaults(row);
+        }
+      })
+    );
+
+    setRows(hydrated);
+    setComplaintsDraft(
+      Object.fromEntries(
+        hydrated.map((b) => [b.id, String(Number(b.health?.complaintsCount || 0))])
+      )
+    );
+  }
+
+  async function createBusiness(e: React.FormEvent) {
+    e.preventDefault();
+    if (!key) return;
+    setSaving(true);
+    setError("");
+    const res = await fetch("/api/admin/businesses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        lat: Number(form.lat),
+        lng: Number(form.lng),
+        commissionRate: Number(form.commissionRate),
+      }),
+    });
+    const json = await res.json();
+    setSaving(false);
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not create business");
+      return;
+    }
+    setForm(initialForm);
+    await load();
+  }
+
+  async function generateOnboardingPin(businessId: string) {
+    if (!key) return;
+    setPinLoadingId(businessId);
+    setError("");
+    const res = await fetch(`/api/admin/onboarding`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId }),
+    });
+    const json = await res.json();
+    setPinLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not generate onboarding PIN");
+      return;
+    }
+    const onboarding = json?.onboarding || {};
+    setLastOnboarding({
+      businessName: String(onboarding.businessName || ""),
+      temporaryPin: String(onboarding.temporaryPin || ""),
+    });
+  }
+
+  async function togglePause(business: Business) {
+    if (!key) return;
+    const nextPaused = !Boolean(business.paused);
+    const reason = nextPaused
+      ? window.prompt("Reason for pause (optional, max 140):", business.pausedReason || "") || ""
+      : "";
+    if (nextPaused && reason.trim().length > 140) {
+      setError("Reason must be 140 characters or less.");
+      return;
+    }
+
+    setActionLoadingId(business.id);
+    setError("");
+    const res = await fetch(`/api/admin/businesses/pause`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId: business.id,
+        paused: nextPaused,
+        reason,
+      }),
+    });
+    const json = await res.json();
+    setActionLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not update pause status");
+      return;
+    }
+    await load();
+  }
+
+  async function setComplaints(businessId: string) {
+    if (!key) return;
+    const value = Number(complaintsDraft[businessId]);
+    if (!Number.isInteger(value) || value < 0 || value > 999) {
+      setError("Complaints must be an integer between 0 and 999.");
+      return;
+    }
+
+    setActionLoadingId(businessId);
+    setError("");
+    const res = await fetch(`/api/admin/businesses/complaints`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, complaintsCount: value }),
+    });
+    const json = await res.json();
+    setActionLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not set complaints count");
+      return;
+    }
+    await load();
+  }
+
+  async function resetHealth(businessId: string) {
+    if (!key) return;
+    const confirmed = window.confirm("Reset cancels and slow-accept counters for this business?");
+    if (!confirmed) return;
+
+    setActionLoadingId(businessId);
+    setError("");
+    const res = await fetch(`/api/admin/businesses/health-reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId }),
+    });
+    const json = await res.json();
+    setActionLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not reset health counters");
+      return;
+    }
+    await load();
+  }
+
+  async function updateDeliveryPolicy(business: Business) {
+    if (!key) return;
+    const current = business.deliveryPolicy || {};
+    const courierName = window.prompt(
+      "Nombre del mensajero/courier (opcional):",
+      String(current.courierName || "")
+    );
+    if (courierName == null) return;
+    const courierPhone = window.prompt(
+      "Telefono del mensajero/courier (opcional):",
+      String(current.courierPhone || "")
+    );
+    if (courierPhone == null) return;
+    const publicNoteEs = window.prompt(
+      "Nota publica para clientes (opcional):",
+      String(current.publicNoteEs || "Entrega manejada por el negocio")
+    );
+    if (publicNoteEs == null) return;
+    const instructionsEs = window.prompt(
+      "Instrucciones internas (opcional):",
+      String(current.instructionsEs || "")
+    );
+    if (instructionsEs == null) return;
+
+    setActionLoadingId(business.id);
+    setError("");
+    const res = await fetch(
+      `/api/admin/businesses/delivery-policy`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: business.id,
+          mode: "self_delivery",
+          courierName: courierName.slice(0, 60),
+          courierPhone: courierPhone.slice(0, 30),
+          publicNoteEs: publicNoteEs.slice(0, 120),
+          instructionsEs: instructionsEs.slice(0, 280),
+        }),
+      }
+    );
+    const json = await res.json();
+    setActionLoadingId("");
+    if (!res.ok || !json.ok) {
+      setError(json?.error?.message || json?.error || "Could not update delivery policy");
+      return;
+    }
+    await load();
+  }
+
+  useEffect(() => {
+    load();
+  }, [ready, key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!ready) return null;
+
+  if (authenticated === false || !key) {
+    return (
+      <main className="mx-auto min-h-screen max-w-7xl p-6">
+        <h1 className="text-2xl font-bold">Businesses</h1>
+        <p className="mt-2 text-sm text-red-600">
+          Business admin access requires a secure browser session.
+        </p>
+        <Link
+          href="/admin/access?next=/admin/businesses"
+          className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+        >
+          Open admin access
+        </Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto min-h-screen max-w-7xl p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Businesses</h1>
+        <Link href={`/admin`} className="rounded-lg border px-3 py-2 text-sm">
+          Back to Admin
+        </Link>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr,1.9fr]">
+        <form onSubmit={createBusiness} className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="font-semibold">Create Business</h2>
+          <div className="mt-3 grid gap-2">
+            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "restaurant" | "colmado" })}>
+              <option value="restaurant">restaurant</option>
+              <option value="colmado">colmado</option>
+            </select>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isDemo}
+                onChange={(e) => setForm({ ...form, isDemo: e.target.checked })}
+              />
+              Demo business (training mode)
+            </label>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" />
+            <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" />
+            <input className="input" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="WhatsApp" />
+            <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" />
+            <div className="grid grid-cols-2 gap-2">
+              <input className="input" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} placeholder="Lat" />
+              <input className="input" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} placeholder="Lng" />
+            </div>
+            <input className="input" value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="Logo URL" />
+            <input
+              className="input"
+              value={form.commissionRate}
+              onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
+              placeholder="Commission rate (0.08)"
+            />
+            <input className="input" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value })} placeholder="Merchant PIN" />
+            <button disabled={saving} className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white">
+              {saving ? "Creating..." : "Create"}
+            </button>
+          </div>
+          {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+        </form>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">Business List</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "paused", "at-risk"] as RiskFilter[]).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setRiskFilter(option)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                    riskFilter === option ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+              <RunPerformanceRecomputeButton adminKey={key} onDone={load} />
+            </div>
+          </div>
+          {lastOnboarding ? (
+            <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              PIN temporal para <strong>{lastOnboarding.businessName}</strong>: <strong>{lastOnboarding.temporaryPin}</strong>
+            </p>
+          ) : null}
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="pb-2">Name</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Delivery</th>
+                  <th className="pb-2">Demo</th>
+                  <th className="pb-2">Paused</th>
+                  <th className="pb-2">Score</th>
+                  <th className="pb-2">Tier</th>
+                  <th className="pb-2">UpdatedAt</th>
+                  <th className="pb-2">Override</th>
+                  <th className="pb-2">Complaints</th>
+                  <th className="pb-2">Cancels(30d)</th>
+                  <th className="pb-2">SlowAccept(30d)</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Onboarding</th>
+                  <th className="pb-2">Controls</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.map((b) => (
+                  <tr key={b.id} className="border-t border-slate-100 align-top">
+                    <td className="py-2">
+                      <div className="font-medium">{b.name}</div>
+                      <div className="text-xs text-slate-500">{b.address}</div>
+                    </td>
+                    <td className="py-2">{b.type}</td>
+                    <td className="py-2">
+                      <div className="grid gap-1 text-xs">
+                        <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold w-fit">
+                          Self-delivery
+                        </span>
+                        <span className="text-slate-600">
+                          Courier: {String(b.deliveryPolicy?.courierName || "-")}
+                        </span>
+                        <span className="text-slate-600">
+                          Phone: {String(b.deliveryPolicy?.courierPhone || "-")}
+                        </span>
+                        <span className="text-slate-500">
+                          Nota: {String(b.deliveryPolicy?.publicNoteEs || "Entrega manejada por el negocio")}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2">
+                      {b.isDemo ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                          Demo
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {b.paused ? (
+                        <div className="grid gap-1">
+                          <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                            Paused
+                          </span>
+                          {b.pausedReason ? <span className="text-xs text-slate-500">{b.pausedReason}</span> : null}
+                        </div>
+                      ) : (
+                        <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2">{Number(b.performance?.score ?? 50)}</td>
+                    <td className="py-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
+                        {String(b.performance?.tier || "bronze")}
+                      </span>
+                    </td>
+                    <td className="py-2 text-xs text-slate-500">
+                      {b.performance?.updatedAt ? new Date(b.performance.updatedAt).toLocaleString("es-DO") : "-"}
+                    </td>
+                    <td className="py-2">
+                      {Number(b.performance?.overrideBoost || 0) !== 0 || b.performance?.overrideTier ? (
+                        <div className="grid gap-1">
+                          <span className="inline-flex w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                            Override
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            boost {Number(b.performance?.overrideBoost || 0)}
+                            {b.performance?.overrideTier ? ` | tier ${b.performance.overrideTier}` : ""}
+                          </span>
+                          {b.performance?.note ? (
+                            <span className="text-xs text-slate-500">{b.performance.note}</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          className="w-16 rounded border border-slate-300 px-2 py-1"
+                          value={complaintsDraft[b.id] ?? "0"}
+                          onChange={(e) =>
+                            setComplaintsDraft((prev) => ({ ...prev, [b.id]: e.target.value }))
+                          }
+                        />
+                        <button
+                          disabled={actionLoadingId === b.id}
+                          onClick={() => setComplaints(b.id)}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
+                        >
+                          Set
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-2">{Number(b.health?.cancelsCount30d || 0)}</td>
+                    <td className="py-2">{Number(b.health?.slowAcceptCount30d || 0)}</td>
+                    <td className="py-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium">{b.subscription.status}</span>
+                      {isAtRisk(b) ? (
+                        <p className="mt-1 text-xs font-semibold text-amber-700">At risk</p>
+                      ) : null}
+                    </td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        disabled={pinLoadingId === b.id}
+                        onClick={() => generateOnboardingPin(b.id)}
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold"
+                      >
+                        {pinLoadingId === b.id ? "Generando..." : "Generar PIN"}
+                      </button>
+                    </td>
+                    <td className="py-2">
+                      <div className="grid gap-1">
+                        <button
+                          onClick={() => togglePause(b)}
+                          disabled={actionLoadingId === b.id}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
+                        >
+                          {b.paused ? "Unpause" : "Pause"}
+                        </button>
+                        <button
+                          onClick={() => resetHealth(b.id)}
+                          disabled={actionLoadingId === b.id}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
+                        >
+                          Reset Health
+                        </button>
+                        <button
+                          onClick={() => updateDeliveryPolicy(b)}
+                          disabled={actionLoadingId === b.id}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
+                        >
+                          Delivery Policy
+                        </button>
+                        <PerformanceOverrideForm
+                          adminKey={key}
+                          businessId={b.id}
+                          initialBoost={Number(b.performance?.overrideBoost || 0)}
+                          initialTier={b.performance?.overrideTier || null}
+                          initialNote={String(b.performance?.note || "")}
+                          onSaved={load}
+                        />
+                        <a
+                          href={`/api/admin/businesses/audit?businessId=${encodeURIComponent(b.id)}&limit=50`}
+                          className="rounded border border-slate-300 px-2 py-1 text-center text-xs font-semibold"
+                        >
+                          Audit
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filteredRows.length ? (
+              <p className="py-3 text-sm text-slate-500">No businesses for current filter.</p>
+            ) : null}
+          </div>
+        </section>
+      </div>
+
+      <style jsx>{`
+        .input {
+          border: 1px solid #d1d5db;
+          border-radius: 0.5rem;
+          padding: 0.55rem 0.7rem;
+        }
+      `}</style>
+    </main>
+  );
+}
