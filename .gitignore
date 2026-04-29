@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -39,3 +40,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+=======
+_repo_backup/
+**/node_modules/
+**/.expo/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/web-build/
+**/.env*
+!**/.env.example
+**/android/
+**/ios/
+**/.expo-start-*.log
+.DS_Store
+
+**/.npm-cache/
+>>>>>>> fd87032 (Restructure AishaFoodProject into clean monorepo + driver + WhatsApp + map integration)

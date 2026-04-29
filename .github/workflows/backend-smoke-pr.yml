@@ -1,0 +1,79 @@
+name: Backend Smoke PR
+
+on:
+  pull_request:
+    paths:
+      - "aisha-food-backend/**"
+      - ".github/workflows/backend-smoke-pr.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aisha-food-backend
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/aishafood_ci
+      ADMIN_KEY: ci-admin-key-please-change
+      JWT_SECRET: ci-jwt-secret-please-change
+      BASE_LOCATION_LAT: "18.5204"
+      BASE_LOCATION_LNG: "-69.9590"
+      MAX_RADIUS_KM: "8"
+      MAINTENANCE_MODE: "false"
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: aisha-food-backend/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Start Backend
+        run: |
+          npm run dev > /tmp/backend-dev.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Wait For Health
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:3000/api/health" > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become ready in time"
+          exit 1
+
+      - name: Run Smoke Suite
+        env:
+          SMOKE_BASE_URL: http://127.0.0.1:3000
+        run: npm run qa:smoke
+
+      - name: Print Backend Logs On Failure
+        if: failure()
+        run: cat /tmp/backend-dev.log
