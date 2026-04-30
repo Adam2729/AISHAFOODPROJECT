@@ -19,6 +19,7 @@ type Body = {
   merchantType?: string;
   deliveryType?: string;
   deliveryModePreference?: string;
+  acceptsPayTech?: boolean;
   businessName?: string;
   ownerName?: string;
   phone?: string;
@@ -82,6 +83,7 @@ function buildMerchantConfirmationEmail(input: {
   businessName: string;
   cityName: string;
   supportWhatsApp: string;
+  acceptsPayTech: boolean;
 }) {
   const lines = [
     `Hello ${input.businessName},`,
@@ -93,6 +95,9 @@ function buildMerchantConfirmationEmail(input: {
     "Our onboarding team will review your information and contact you with the next steps.",
     "Both delivery options can be supported when configured during onboarding: self_delivery and platform_driver.",
   ];
+  if (input.acceptsPayTech) {
+    lines.push("You also asked to accept Orange Money, Wave, and card payments through PayTech.");
+  }
 
   if (input.supportWhatsApp) {
     lines.push("", `Support WhatsApp: ${input.supportWhatsApp}`);
@@ -121,6 +126,7 @@ export async function POST(req: Request) {
     const deliveryModePreference = normalizeDeliveryModePreference(
       body.deliveryModePreference || body.deliveryType
     );
+    const acceptsPayTech = Boolean(body.acceptsPayTech);
     const deliveryType = resolveCanonicalDeliveryType({
       deliveryType: body.deliveryType,
       deliveryModePreference,
@@ -174,6 +180,7 @@ export async function POST(req: Request) {
       merchantType,
       deliveryType,
       deliveryModePreference,
+      acceptsPayTech,
       businessName,
       ownerName,
       phone,
@@ -212,6 +219,7 @@ export async function POST(req: Request) {
         businessName,
         cityName,
         supportWhatsApp,
+        acceptsPayTech,
       }),
     });
 
@@ -242,6 +250,7 @@ export async function POST(req: Request) {
         merchantType,
         deliveryType,
         deliveryModePreference,
+        acceptsPayTech,
         confirmationEmail: emailResult,
       },
       201

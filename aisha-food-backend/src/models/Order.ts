@@ -106,8 +106,12 @@ const OrderSchema = new Schema(
     subtotal: { type: Number, required: true, min: 0 },
     deliveryFeeToCustomer: { type: Number, default: 0 },
     total: { type: Number, required: true, min: 0 },
+    orderTotal: { type: Number, required: true, min: 0 },
     commissionRate: { type: Number, default: COMMISSION_RATE_DEFAULT },
     commissionAmount: { type: Number, required: true, min: 0 },
+    platformCommissionAmount: { type: Number, required: true, min: 0 },
+    restaurantNetAmount: { type: Number, required: true, min: 0 },
+    driverPayoutAmount: { type: Number, default: 0, min: 0 },
     commissionRateAtOrderTime: { type: Number, default: null },
     currency: { type: String, enum: ["DOP", "CFA", null], default: null },
     deliveryFeeModelAtOrderTime: {
@@ -138,6 +142,13 @@ const OrderSchema = new Schema(
       enum: [...PAYMENT_STATUS_VALUES, "unpaid"],
       default: "pending",
     }, // legacy shortcut
+    paytechRefCommand: { type: String, default: null, trim: true, maxlength: 120, index: true },
+    paytechTransactionId: { type: String, default: null, trim: true, maxlength: 120 },
+    paytechPaymentUrl: { type: String, default: null, trim: true, maxlength: 800 },
+    paytechRawStatus: { type: String, default: null, trim: true, maxlength: 120 },
+    paytechWebhookReceivedAt: { type: Date, default: null },
+    paytechWebhookPayload: { type: Schema.Types.Mixed, default: null },
+    failedAt: { type: Date, default: null },
     promoCode: { type: String, default: null, trim: true, uppercase: true, maxlength: 64 },
 
     status: {
@@ -310,8 +321,12 @@ const OrderSchema = new Schema(
 const PROTECTED_FINANCIAL_PATH_PREFIXES = [
   "subtotal",
   "total",
+  "orderTotal",
   "commissionRate",
   "commissionAmount",
+  "platformCommissionAmount",
+  "restaurantNetAmount",
+  "driverPayoutAmount",
   "deliveryFeeToCustomer",
   "deliveryFeeModelAtOrderTime",
   "deliveryFeeBandAtOrderTime",
@@ -319,6 +334,13 @@ const PROTECTED_FINANCIAL_PATH_PREFIXES = [
   "items",
   "payment",
   "paymentStatus",
+  "paytechRefCommand",
+  "paytechTransactionId",
+  "paytechPaymentUrl",
+  "paytechRawStatus",
+  "paytechWebhookReceivedAt",
+  "paytechWebhookPayload",
+  "failedAt",
   "promoCode",
   "discount",
   "settlement.weekKey",
@@ -688,14 +710,24 @@ if (existingOrderModel) {
   const needsPaymentMerge =
     !existingSchema.path?.("payment.paidAt") ||
     !existingSchema.path?.("payment.provider") ||
-    !existingSchema.path?.("payment.reference");
+    !existingSchema.path?.("payment.reference") ||
+    !existingSchema.path?.("paytechRefCommand") ||
+    !existingSchema.path?.("paytechTransactionId") ||
+    !existingSchema.path?.("paytechPaymentUrl") ||
+    !existingSchema.path?.("paytechRawStatus") ||
+    !existingSchema.path?.("paytechWebhookPayload") ||
+    !existingSchema.path?.("failedAt");
   const needsPromoCodeMerge =
     !existingSchema.path?.("promoCode") ||
     !existingSchema.path?.("discount.promoCodeId");
   const needsDeliveryFeeSnapshotMerge =
     !existingSchema.path?.("deliveryFeeModelAtOrderTime") ||
     !existingSchema.path?.("deliveryFeeBandAtOrderTime") ||
-    !existingSchema.path?.("riderPayoutExpectedAtOrderTime");
+    !existingSchema.path?.("riderPayoutExpectedAtOrderTime") ||
+    !existingSchema.path?.("orderTotal") ||
+    !existingSchema.path?.("platformCommissionAmount") ||
+    !existingSchema.path?.("restaurantNetAmount") ||
+    !existingSchema.path?.("driverPayoutAmount");
   const needsOrderItemCatalogMerge =
     !existingSchema.path?.("items.displaySize") ||
     !existingSchema.path?.("items.quantityValue") ||

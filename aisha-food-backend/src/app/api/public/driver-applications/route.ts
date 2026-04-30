@@ -17,6 +17,7 @@ type Body = {
   email?: string;
   availability?: string;
   documentsStatus?: string;
+  idDocumentUrl?: string;
   zoneLabel?: string;
   vehicleType?: string;
   referredByCode?: string;
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
     const email = normalize(body.email, 160, true).toLowerCase();
     const availability = normalize(body.availability, 80, true);
     const documentsStatus = normalize(body.documentsStatus, 40, false) || null;
+    const idDocumentUrl = normalize(body.idDocumentUrl, 500, false) || null;
     const zoneLabel = normalize(body.zoneLabel, 80, false) || null;
     const vehicleType = normalize(body.vehicleType, 40, true) || null;
     const referredByCode = normalize(body.referredByCode, 24, false).toUpperCase() || null;
@@ -113,6 +115,7 @@ export async function POST(req: Request) {
       vehicleType,
       availability,
       documentsStatus,
+      idDocumentUrl,
       referredByCode,
       notes,
       confirmationEmailStatus: "pending",

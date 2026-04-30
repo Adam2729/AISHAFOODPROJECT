@@ -65,6 +65,14 @@ type OrderLean = {
   createdAt: Date;
   subtotal: number;
   total: number;
+  payment?: {
+    method?: string | null;
+    status?: string | null;
+    provider?: string | null;
+    reference?: string | null;
+    paidAt?: Date | null;
+  };
+  paymentStatus?: string | null;
   commissionAmount: number;
   deliveryFeeToCustomer?: number;
   riderPayoutExpectedAtOrderTime?: number;
@@ -373,6 +381,36 @@ export async function PATCH(
         orderId,
         businessId: session.businessId,
       });
+    }
+    const normalizedPaymentMethod = String((existing as { payment?: { method?: string | null } })?.payment?.method || "")
+      .trim()
+      .toLowerCase();
+    const normalizedPaymentStatus = String(
+      (existing as { payment?: { status?: string | null }; paymentStatus?: string | null })?.payment?.status ||
+        existing.paymentStatus ||
+        "pending"
+    )
+      .trim()
+      .toLowerCase();
+    if (
+      normalizedPaymentMethod === "paytech" &&
+      ["accepted", "preparing", "ready", "out_for_delivery"].includes(nextStatus) &&
+      normalizedPaymentStatus !== "paid"
+    ) {
+      return finish(
+        fail(
+          "PAYMENT_PENDING",
+          "PayTech orders can only move forward after online payment is confirmed.",
+          409
+        ),
+        409,
+        {
+          orderId,
+          businessId: session.businessId,
+          paymentMethod: normalizedPaymentMethod,
+          paymentStatus: normalizedPaymentStatus,
+        }
+      );
     }
     if (nextStatus === "cancelled" && !cancelReasonCode && !legacyCancelReason) {
       return finish(

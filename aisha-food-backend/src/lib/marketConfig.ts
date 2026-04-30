@@ -2,7 +2,7 @@ import type { CityLean } from "@/lib/city";
 
 export type MarketCode = "DO" | "ML";
 export type MarketLanguage = "es" | "fr" | "bm" | "en";
-export type MarketPaymentMethod = "cash" | "mobile_money";
+export type MarketPaymentMethod = "cash" | "mobile_money" | "paytech";
 
 type CityLike = Partial<
   Pick<
@@ -60,7 +60,7 @@ const ML_MARKET: MarketConfig = {
   supportWhatsApp: ML_SUPPORT_WHATSAPP_PLACEHOLDER,
   supportWhatsAppIsPlaceholder: true,
   defaultTimezone: "Africa/Bamako",
-  paymentMethods: ["cash", "mobile_money"],
+  paymentMethods: ["cash", "mobile_money", "paytech"],
 };
 
 function normalize(value: unknown) {
@@ -148,6 +148,10 @@ function derivePaymentMethods(city: CityLike | null | undefined, market: MarketC
       normalized === "momo"
     ) {
       methods.add("mobile_money");
+      continue;
+    }
+    if (normalized === "paytech") {
+      methods.add("paytech");
     }
   }
 

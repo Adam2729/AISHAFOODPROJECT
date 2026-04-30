@@ -6,12 +6,12 @@ const PaymentEventSchema = new Schema(
     cityId: { type: Schema.Types.ObjectId, ref: "City", required: true, index: true },
     method: {
       type: String,
-      enum: ["cash", "mobile_money", "wallet", "card"],
+      enum: ["cash", "mobile_money", "wallet", "card", "paytech"],
       required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "authorized", "paid", "failed", "refunded"],
+      enum: ["pending", "authorized", "paid", "failed", "cancelled", "refunded"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },

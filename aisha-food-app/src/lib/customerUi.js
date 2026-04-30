@@ -87,10 +87,24 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
     },
   ];
 
+  const payTechOption = {
+    key: "paytech",
+    backendMethod: "paytech",
+    label: isSpanish
+      ? "Payer avec Orange Money / Wave / Carte"
+      : "Payer avec Orange Money / Wave / Carte",
+    note: isSpanish
+      ? "Pago seguro en linea via PayTech."
+      : "Paiement securise en ligne via PayTech.",
+  };
+
   const options = [];
   if (methodSet.has("cash")) options.push(cashOption);
   if (methodSet.has("mobile_money")) {
     options.push(...mobileMoneyOptions);
+  }
+  if (methodSet.has("paytech")) {
+    options.push(payTechOption);
   }
 
   return options.length ? options : [cashOption];

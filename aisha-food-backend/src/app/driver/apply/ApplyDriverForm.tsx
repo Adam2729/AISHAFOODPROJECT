@@ -44,6 +44,7 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
   const [vehicleType, setVehicleType] = useState("motorbike");
   const [availability, setAvailability] = useState("flexible");
   const [zoneLabel, setZoneLabel] = useState("");
+  const [idDocumentUrl, setIdDocumentUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
@@ -112,6 +113,7 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
           email,
           vehicleType,
           availability,
+          idDocumentUrl,
           zoneLabel,
           notes,
           referredByCode: referralCode || undefined,
@@ -128,6 +130,7 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
       setVehicleType("motorbike");
       setAvailability("flexible");
       setZoneLabel("");
+      setIdDocumentUrl("");
       setNotes("");
     } catch (requestError: unknown) {
       setError(
@@ -155,11 +158,12 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
         </div>
       ) : null}
 
-      {successId ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Application submitted. ID: <span className="font-semibold">{successId}</span>
-        </div>
-      ) : null}
+        {successId ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Application received. We will contact you on WhatsApp. ID:{" "}
+          <span className="font-semibold">{successId}</span>
+          </div>
+        ) : null}
 
       <div className="grid gap-3">
         <label className="text-sm font-medium text-slate-700">
@@ -244,6 +248,16 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
             value={zoneLabel}
             onChange={(event) => setZoneLabel(event.target.value)}
             placeholder="Neighborhood or zone"
+            className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          ID document URL
+          <input
+            value={idDocumentUrl}
+            onChange={(event) => setIdDocumentUrl(event.target.value)}
+            placeholder="Optional document link"
             className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
           />
         </label>

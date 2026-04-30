@@ -24,6 +24,7 @@ const MerchantApplicationSchema = new Schema(
       enum: ["self_delivery", "platform_driver", "both", ""],
       default: "",
     },
+    acceptsPayTech: { type: Boolean, default: false },
     businessName: { type: String, required: true, trim: true, maxlength: 120 },
     ownerName: { type: String, required: true, trim: true, maxlength: 120 },
     phone: { type: String, required: true, trim: true, maxlength: 40 },
@@ -94,6 +95,7 @@ if (existingMerchantApplicationModel) {
     !existingSchema.path?.("merchantType") ||
     !existingSchema.path?.("deliveryType") ||
     !existingSchema.path?.("deliveryModePreference") ||
+    !existingSchema.path?.("acceptsPayTech") ||
     !existingSchema.path?.("email") ||
     !existingSchema.path?.("passwordHash") ||
     !existingSchema.path?.("country") ||

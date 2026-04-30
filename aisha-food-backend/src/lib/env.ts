@@ -39,6 +39,13 @@ const schema = z.object({
   PROMO_CODE_MAX_LEN: z.coerce.number().default(24),
   SUPPORT_WHATSAPP_E164: z.string().default(""),
   SUPPORT_WHATSAPP_DEFAULT_TEXT: z.string().default("Hola, necesito ayuda con mi pedido."),
+  PAYTECH_API_KEY: z.string().optional(),
+  PAYTECH_SECRET_KEY: z.string().optional(),
+  PAYTECH_MODE: z.enum(["test", "prod"]).default("test"),
+  PAYTECH_BASE_URL: z.string().default("https://paytech.sn/api"),
+  PAYTECH_WEBHOOK_SECRET: z.string().optional(),
+  PAYTECH_SUCCESS_URL: z.string().optional(),
+  PAYTECH_CANCEL_URL: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
@@ -81,6 +88,13 @@ const parsed = schema.safeParse({
   SUPPORT_WHATSAPP_E164: process.env.SUPPORT_WHATSAPP_E164 ?? "",
   SUPPORT_WHATSAPP_DEFAULT_TEXT:
     process.env.SUPPORT_WHATSAPP_DEFAULT_TEXT ?? "Hola, necesito ayuda con mi pedido.",
+  PAYTECH_API_KEY: process.env.PAYTECH_API_KEY,
+  PAYTECH_SECRET_KEY: process.env.PAYTECH_SECRET_KEY,
+  PAYTECH_MODE: process.env.PAYTECH_MODE ?? "test",
+  PAYTECH_BASE_URL: process.env.PAYTECH_BASE_URL ?? "https://paytech.sn/api",
+  PAYTECH_WEBHOOK_SECRET: process.env.PAYTECH_WEBHOOK_SECRET,
+  PAYTECH_SUCCESS_URL: process.env.PAYTECH_SUCCESS_URL,
+  PAYTECH_CANCEL_URL: process.env.PAYTECH_CANCEL_URL,
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_USER: process.env.SMTP_USER,
@@ -216,6 +230,14 @@ export const ENV_SUPPORT_WHATSAPP_E164 = normalizedSupportWhatsApp;
 export const ENV_SUPPORT_WHATSAPP_IS_PLACEHOLDER = !supportWhatsAppConfigured;
 export const ENV_SUPPORT_WHATSAPP_CONFIGURED = supportWhatsAppConfigured;
 export const ENV_SUPPORT_WHATSAPP_DEFAULT_TEXT = env.SUPPORT_WHATSAPP_DEFAULT_TEXT;
+export const ENV_PAYTECH_API_KEY = normalizeText(env.PAYTECH_API_KEY) || null;
+export const ENV_PAYTECH_SECRET_KEY = normalizeText(env.PAYTECH_SECRET_KEY) || null;
+export const ENV_PAYTECH_MODE = env.PAYTECH_MODE;
+export const ENV_PAYTECH_BASE_URL =
+  normalizeText(env.PAYTECH_BASE_URL) || "https://paytech.sn/api";
+export const ENV_PAYTECH_WEBHOOK_SECRET = normalizeText(env.PAYTECH_WEBHOOK_SECRET) || null;
+export const ENV_PAYTECH_SUCCESS_URL = normalizeText(env.PAYTECH_SUCCESS_URL) || null;
+export const ENV_PAYTECH_CANCEL_URL = normalizeText(env.PAYTECH_CANCEL_URL) || null;
 export const ENV_SMTP_HOST = normalizeText(env.SMTP_HOST) || null;
 export const ENV_SMTP_PORT = Number.isFinite(Number(env.SMTP_PORT))
   ? Number(env.SMTP_PORT)

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -122,6 +123,10 @@ export default function CheckoutScreen({ navigation }) {
         cityMissing: "No seleccionada",
         paymentNote: uiCopy.manualPaymentNote,
         weakConnection: uiCopy.weakConnection,
+        paytechPending:
+          "Pago iniciado. Completa el pago en PayTech y vuelve para seguir el estado del pedido.",
+        paytechInitFailed:
+          "El pedido fue creado, pero no pudimos abrir el pago de PayTech. Revisa el estado del pedido o contacta soporte.",
         submit: "Enviar pedido",
         promoButton: "Aplicar",
         referralButton: "Validar",
@@ -177,6 +182,10 @@ export default function CheckoutScreen({ navigation }) {
         cityMissing: "Non selectionnee",
         paymentNote: uiCopy.manualPaymentNote,
         weakConnection: uiCopy.weakConnection,
+        paytechPending:
+          "Paiement lance. Termine le paiement dans PayTech puis reviens suivre la commande.",
+        paytechInitFailed:
+          "La commande est creee, mais le paiement PayTech n'a pas pu s'ouvrir. Verifie l'etat de la commande ou contacte le support.",
         submit: "Commander",
         promoButton: "Appliquer",
         referralButton: "Verifier",
@@ -193,12 +202,22 @@ export default function CheckoutScreen({ navigation }) {
     const methods = Array.isArray(market.paymentMethods) && market.paymentMethods.length
       ? market.paymentMethods
       : ["cash"];
-    return methods.filter((method) => method === "cash" || method === "mobile_money");
+    return methods.filter(
+      (method) =>
+        method === "cash" || method === "mobile_money" || method === "paytech"
+    );
   }, [market.paymentMethods]);
 
   const paymentOptions = useMemo(
     () => getCustomerPaymentOptions(market, availablePaymentMethods),
     [availablePaymentMethods, market]
+  );
+  const selectedPaymentOptionConfig = useMemo(
+    () =>
+      paymentOptions.find((option) => option.key === selectedPaymentOption) ||
+      paymentOptions[0] ||
+      null,
+    [paymentOptions, selectedPaymentOption]
   );
 
   useEffect(() => {
@@ -233,7 +252,13 @@ export default function CheckoutScreen({ navigation }) {
         setDeliveryInstructions(savedAddress.deliveryInstructions);
         if (savedPreferredPaymentMethod) {
           setSelectedPaymentOption(savedPreferredPaymentMethod);
-          setPaymentMethod(savedPreferredPaymentMethod === "cash" ? "cash" : "mobile_money");
+          setPaymentMethod(
+            savedPreferredPaymentMethod === "cash"
+              ? "cash"
+              : savedPreferredPaymentMethod === "paytech"
+              ? "paytech"
+              : "mobile_money"
+          );
         }
         if (Number.isFinite(Number(saved?.lat))) setLat(Number(saved.lat));
         if (Number.isFinite(Number(saved?.lng))) setLng(Number(saved.lng));
@@ -484,6 +509,23 @@ export default function CheckoutScreen({ navigation }) {
           ? { lat: Number(lat), lng: Number(lng) }
           : {}),
       });
+      const isPayTechCheckout = paymentMethod === "paytech";
+      let paytechPaymentUrl = "";
+      let paymentLinkError = "";
+
+      if (isPayTechCheckout) {
+        try {
+          const paymentInit = await apiPost("/api/payments/paytech/request", {
+            orderId: response?.orderId,
+          });
+          paytechPaymentUrl = String(paymentInit?.paymentUrl || "").trim();
+          if (!paytechPaymentUrl) {
+            paymentLinkError = text.paytechInitFailed;
+          }
+        } catch (requestError) {
+          paymentLinkError = requestError?.message || text.paytechInitFailed;
+        }
+      }
 
       await AsyncStorage.setItem(
         SAVED_CUSTOMER_KEY,
@@ -516,7 +558,14 @@ export default function CheckoutScreen({ navigation }) {
           method:
             response?.payment?.method === "mobile_money"
               ? selectedPaymentOption
-              : response?.payment?.method || (selectedPaymentOption === "cash" ? "cash" : selectedPaymentOption),
+              : response?.payment?.method ||
+                (selectedPaymentOption === "cash" ? "cash" : selectedPaymentOption),
+          status: isPayTechCheckout
+            ? "pending"
+            : response?.payment?.status || "pending",
+          provider: isPayTechCheckout
+            ? "paytech"
+            : response?.payment?.provider || null,
         },
         totals: response?.totals || {
           subtotalBefore: subtotal,
@@ -536,7 +585,18 @@ export default function CheckoutScreen({ navigation }) {
         deliveryOtp: response?.deliveryOtp || "",
         deliveryProof: response?.deliveryProof || null,
         city: selectedCity,
+        paytechPaymentUrl: isPayTechCheckout ? paytechPaymentUrl : "",
+        paymentPendingNotice: isPayTechCheckout ? text.paytechPending : "",
+        paymentLinkError: isPayTechCheckout ? paymentLinkError : "",
       });
+
+      if (isPayTechCheckout && paytechPaymentUrl) {
+        Linking.openURL(paytechPaymentUrl).catch(() => {
+          Alert.alert(text.payment, text.paytechPending);
+        });
+      } else if (isPayTechCheckout && paymentLinkError) {
+        Alert.alert(text.payment, paymentLinkError);
+      }
     } catch (requestError) {
       const message = requestError?.message || text.createError;
       setError(message);
@@ -632,7 +692,9 @@ export default function CheckoutScreen({ navigation }) {
               );
             })}
           </View>
-          <Text style={styles.helperText}>{text.paymentNote}</Text>
+          <Text style={styles.helperText}>
+            {selectedPaymentOptionConfig?.note || text.paymentNote}
+          </Text>
         </View>
 
         <View style={styles.card}>

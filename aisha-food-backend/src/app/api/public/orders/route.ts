@@ -324,14 +324,15 @@ export async function POST(req: Request) {
     const allowDevLocationBypass =
       DEV_ALLOW_ORDER_LOCATION_BYPASS && ENV_RUNTIME_STAGE !== "production";
     const phase6StylePayload = Boolean(body.restaurantId || body.notes != null);
-    if (paymentMethodRaw && !["cash", "mobile_money", "mobilemoney"].includes(paymentMethodRaw)) {
+    if (paymentMethodRaw && !["cash", "mobile_money", "mobilemoney", "paytech"].includes(paymentMethodRaw)) {
       return finish(
-        fail("VALIDATION_ERROR", "paymentMethod must be cash or mobile_money.", 400),
+        fail("VALIDATION_ERROR", "paymentMethod must be cash, mobile_money, or paytech.", 400),
         400,
         { businessId }
       );
     }
     const paymentMethod = normalizePaymentMethod(paymentMethodRaw || "cash");
+    const isPayTechPayment = paymentMethod === "paytech";
 
     if (!customerName || !phone || !address || !businessId) {
       return finish(
@@ -839,6 +840,9 @@ export async function POST(req: Request) {
     const commissionAmount = roundCurrency(subtotalAfter * commissionRate);
     const deliveryFeeToCustomer = roundCurrency(Number(deliveryFeeQuote.fee || 0));
     const total = roundCurrency(subtotalAfter + deliveryFeeToCustomer);
+    const platformCommissionAmount = commissionAmount;
+    const restaurantNetAmount = roundCurrency(Math.max(0, total - platformCommissionAmount));
+    const driverPayoutAmount = roundCurrency(Number(deliveryFeeQuote.payoutToRider || 0));
     const paymentProvider = getInitialPaymentProvider(paymentMethod);
     let created: any | null = null;
     let deliveryOtp = "";
@@ -866,8 +870,12 @@ export async function POST(req: Request) {
           subtotal,
           deliveryFeeToCustomer,
           total,
+          orderTotal: total,
           commissionRate,
           commissionAmount,
+          platformCommissionAmount,
+          restaurantNetAmount,
+          driverPayoutAmount,
           commissionRateAtOrderTime: commissionRate,
           currency: normalizeMoneyCurrency(selectedCity),
           deliveryFeeModelAtOrderTime: selectedCity.deliveryFeeModel,
@@ -887,6 +895,13 @@ export async function POST(req: Request) {
             reference: null,
           },
           paymentStatus: "pending",
+          paytechRefCommand: null,
+          paytechTransactionId: null,
+          paytechPaymentUrl: null,
+          paytechRawStatus: isPayTechPayment ? "pending" : null,
+          paytechWebhookReceivedAt: null,
+          paytechWebhookPayload: null,
+          failedAt: null,
           promoCode: discountSource === "promo" ? discountCode : null,
           status: "new",
           benefitsApplied: false,
@@ -951,7 +966,12 @@ export async function POST(req: Request) {
         amount: total,
         provider: paymentProvider,
         reference: null,
-        notes: paymentMethod === "mobile_money" ? "Initial mobile money placeholder event." : "Initial cash payment event.",
+        notes:
+          paymentMethod === "paytech"
+            ? "Initial PayTech payment event."
+            : paymentMethod === "mobile_money"
+            ? "Initial mobile money placeholder event."
+            : "Initial cash payment event.",
         createdBy: "system",
       });
     } catch (paymentEventError) {
@@ -1009,22 +1029,24 @@ export async function POST(req: Request) {
 
     await settleNotificationWrites(
       "public.orders.create",
-      [
-        queueMerchantNewOrderNotification({
-          orderId: created._id,
-          orderNumber: created.orderNumber,
-          businessId: (business as any)._id,
-          businessName: String((business as any).name || ""),
-          cityId: selectedCity._id,
-          customerPhoneHash: phoneHash,
-          deliveryMode: deliveryInfo.mode,
-          source: "public.orders.create",
-          meta: {
-            paymentMethod,
-            orderSource,
-          },
-        }),
-      ],
+      isPayTechPayment
+        ? []
+        : [
+            queueMerchantNewOrderNotification({
+              orderId: created._id,
+              orderNumber: created.orderNumber,
+              businessId: (business as any)._id,
+              businessName: String((business as any).name || ""),
+              cityId: selectedCity._id,
+              customerPhoneHash: phoneHash,
+              deliveryMode: deliveryInfo.mode,
+              source: "public.orders.create",
+              meta: {
+                paymentMethod,
+                orderSource,
+              },
+            }),
+          ],
       {
         orderId: String(created._id),
         businessId: String((business as any)._id),
@@ -1110,7 +1132,11 @@ export async function POST(req: Request) {
             subtotal,
             deliveryFeeToCustomer,
             total,
+            orderTotal: total,
             commissionAmount,
+            platformCommissionAmount,
+            restaurantNetAmount,
+            driverPayoutAmount,
             currency: market.currencyCode || normalizeMoneyCurrency(selectedCity),
             deliveryFeeModel: selectedCity.deliveryFeeModel,
           },

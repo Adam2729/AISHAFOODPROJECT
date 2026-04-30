@@ -36,7 +36,7 @@ const MARKET_DEFAULTS = {
     supportWhatsApp: ML_SUPPORT_WHATSAPP_DEFAULT,
     supportWhatsAppIsPlaceholder: true,
     defaultTimezone: "Africa/Bamako",
-    paymentMethods: ["cash", "mobile_money"],
+    paymentMethods: ["cash", "mobile_money", "paytech"],
   },
 };
 const PLACEHOLDER_SUPPORT_NUMBERS = new Set([
@@ -141,6 +141,10 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
       normalized === "wave"
     ) {
       methods.add("mobile_money");
+      return;
+    }
+    if (normalized === "paytech") {
+      methods.add("paytech");
     }
   });
 

@@ -29,10 +29,15 @@ function getCopy(cityOrMarket) {
       ? "Esperando confirmacion del efectivo"
       : "En attente de confirmation du cash",
     paid: isSpanish ? "Pagado" : "Paye",
+    paidOnline: isSpanish ? "Pagado en linea" : "Paye en ligne",
     authorized: isSpanish ? "Autorizado" : "Autorise",
     failed: isSpanish ? "Fallido" : "Echoue",
+    cancelled: isSpanish ? "Cancelado" : "Annule",
     refunded: isSpanish ? "Reembolsado" : "Rembourse",
     pending: isSpanish ? "Pendiente" : "En attente",
+    onlinePaymentPending: isSpanish
+      ? "Pago en linea pendiente"
+      : "Paiement en ligne en attente",
     orderConfirmed: isSpanish ? "Pedido recibido" : "Commande recue",
     orderConfirmedHint: isSpanish
       ? "El negocio debe aceptar y comenzar la preparacion."
@@ -149,9 +154,19 @@ export function getCustomerPaymentStatusLabel(payment, orderStatus, cityOrMarket
   const status = normalize(payment?.status).toLowerCase() || "pending";
   const normalizedOrderStatus = normalize(orderStatus).toLowerCase();
 
+  if (method === "paytech") {
+    if (status === "paid") return copy.paidOnline;
+    if (status === "authorized") return copy.authorized;
+    if (status === "failed") return copy.failed;
+    if (status === "cancelled" || status === "canceled") return copy.cancelled;
+    if (status === "refunded") return copy.refunded;
+    return copy.onlinePaymentPending;
+  }
+
   if (status === "paid") return copy.paid;
   if (status === "authorized") return copy.authorized;
   if (status === "failed") return copy.failed;
+  if (status === "cancelled" || status === "canceled") return copy.cancelled;
   if (status === "refunded") return copy.refunded;
 
   if (method === "cash") {

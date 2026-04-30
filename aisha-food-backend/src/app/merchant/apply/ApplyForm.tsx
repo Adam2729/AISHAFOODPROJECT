@@ -50,6 +50,7 @@ type ApplyState = {
   merchantType: ActiveMerchantType;
   deliveryType: DeliveryType;
   deliveryModePreference: "self_delivery" | "platform_driver" | "both";
+  acceptsPayTech: boolean;
   businessName: string;
   ownerName: string;
   phone: string;
@@ -88,6 +89,7 @@ const INITIAL_STATE: ApplyState = {
   merchantType: "restaurant",
   deliveryType: "own_driver",
   deliveryModePreference: "self_delivery",
+  acceptsPayTech: true,
   businessName: "",
   ownerName: "",
   phone: "",
@@ -292,6 +294,7 @@ export default function ApplyForm({
           merchantType: form.merchantType,
           deliveryType: form.deliveryType,
           deliveryModePreference: form.deliveryModePreference,
+          acceptsPayTech: form.acceptsPayTech,
           businessName: form.businessName,
           ownerName: form.ownerName,
           phone: form.phone,
@@ -707,6 +710,22 @@ export default function ApplyForm({
               placeholder="Bank account, mobile money, or cash collection instructions"
               className="input"
             />
+            <label className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.acceptsPayTech}
+                onChange={(event) => update("acceptsPayTech", event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-semibold text-slate-950">
+                  I want to accept Orange Money / Wave / Card payments through PayTech
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  AishaFood will use this during onboarding to configure online payment acceptance.
+                </span>
+              </span>
+            </label>
           </div>
         ) : null}
 
@@ -739,6 +758,7 @@ export default function ApplyForm({
                 </p>
                 <p>{getDeliveryTypeLabel(form.deliveryType)}</p>
                 <p>{form.payoutMethod}</p>
+                <p>{form.acceptsPayTech ? "PayTech requested" : "PayTech not requested"}</p>
               </div>
               <div>
                 <p>{form.cuisineType || form.storeCategory || "Catalog setup pending"}</p>

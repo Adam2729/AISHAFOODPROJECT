@@ -1,6 +1,6 @@
 import type { CityLean } from "@/lib/city";
 
-export const PAYMENT_METHOD_VALUES = ["cash", "mobile_money", "wallet", "card"] as const;
+export const PAYMENT_METHOD_VALUES = ["cash", "mobile_money", "wallet", "card", "paytech"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHOD_VALUES)[number];
 
 export const PAYMENT_STATUS_VALUES = [
@@ -8,6 +8,7 @@ export const PAYMENT_STATUS_VALUES = [
   "authorized",
   "paid",
   "failed",
+  "cancelled",
   "refunded",
 ] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUS_VALUES)[number];
@@ -22,6 +23,7 @@ export function normalizePaymentMethod(value: unknown, fallback: PaymentMethod =
   if (normalized === "mobile_money" || normalized === "mobilemoney") return "mobile_money";
   if (normalized === "wallet") return "wallet";
   if (normalized === "card") return "card";
+  if (normalized === "paytech") return "paytech";
   return fallback;
 }
 
@@ -34,6 +36,7 @@ export function normalizePaymentStatus(value: unknown, fallback: PaymentStatus =
   if (normalized === "authorized") return "authorized";
   if (normalized === "paid") return "paid";
   if (normalized === "failed") return "failed";
+  if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   if (normalized === "refunded") return "refunded";
   return fallback;
 }
@@ -54,6 +57,8 @@ export function paymentMethodLabel(method: unknown) {
       return "Wallet";
     case "card":
       return "Card";
+    case "paytech":
+      return "PayTech";
     default:
       return "Cash on delivery";
   }
@@ -68,6 +73,8 @@ export function paymentStatusLabel(status: unknown) {
       return "Paid";
     case "failed":
       return "Failed";
+    case "cancelled":
+      return "Cancelled";
     case "refunded":
       return "Refunded";
     default:
@@ -106,6 +113,9 @@ export function citySupportsPaymentMethod(
   if (method === "card") {
     return normalized.includes("card");
   }
+  if (method === "paytech") {
+    return normalized.includes("paytech");
+  }
   return false;
 }
 
@@ -113,5 +123,6 @@ export function getInitialPaymentProvider(method: PaymentMethod, provider?: unkn
   const trimmed = String(provider || "").trim();
   if (trimmed) return trimmed;
   if (method === "mobile_money") return "manual_mobile_money";
+  if (method === "paytech") return "paytech";
   return null;
 }

@@ -17,6 +17,7 @@ const DriverApplicationSchema = new mongoose.Schema(
     vehicleType: { type: String, default: null, trim: true, maxlength: 40 },
     availability: { type: String, default: null, trim: true, maxlength: 80 },
     documentsStatus: { type: String, default: null, trim: true, maxlength: 40 },
+    idDocumentUrl: { type: String, default: null, trim: true, maxlength: 500 },
     referredByCode: { type: String, default: null, trim: true, uppercase: true, maxlength: 24 },
     notes: { type: String, default: null, trim: true, maxlength: 280 },
     confirmationEmailStatus: {
@@ -54,6 +55,7 @@ if (existingDriverApplicationModel) {
     !existingSchema.path?.("vehicleType") ||
     !existingSchema.path?.("availability") ||
     !existingSchema.path?.("documentsStatus") ||
+    !existingSchema.path?.("idDocumentUrl") ||
     !existingSchema.path?.("referredByCode") ||
     !existingSchema.path?.("confirmationEmailStatus") ||
     !existingSchema.path?.("confirmationEmailProvider") ||

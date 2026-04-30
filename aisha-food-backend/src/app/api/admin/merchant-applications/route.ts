@@ -102,6 +102,7 @@ export async function GET(req: Request) {
         merchantType?: string;
         deliveryType?: string;
         deliveryModePreference?: string;
+        acceptsPayTech?: boolean;
         area?: string;
         address?: string;
         cuisineType?: string;
@@ -137,6 +138,7 @@ export async function GET(req: Request) {
         merchantType: String(row.merchantType || "restaurant"),
         deliveryType: String(row.deliveryType || "own_driver"),
         deliveryModePreference: String(row.deliveryModePreference || ""),
+        acceptsPayTech: Boolean(row.acceptsPayTech),
         area: String(row.area || ""),
         address: String(row.address || ""),
         cuisineType: String(row.cuisineType || ""),

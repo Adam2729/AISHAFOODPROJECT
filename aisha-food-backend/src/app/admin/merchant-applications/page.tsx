@@ -14,6 +14,7 @@ type ApplicationRow = {
   merchantType?: string;
   deliveryType?: string;
   deliveryModePreference?: string;
+  acceptsPayTech?: boolean;
   area?: string;
   address?: string;
   cuisineType?: string;
@@ -619,6 +620,10 @@ export default function AdminMerchantApplicationsPage() {
                     value={deliveryModePreferenceLabel(selected.deliveryModePreference)}
                   />
                   <DetailRow label="Delivery" value={deliveryTypeLabel(selected.deliveryType)} />
+                  <DetailRow
+                    label="PayTech"
+                    value={selected.acceptsPayTech ? "Requested" : "Not requested"}
+                  />
                   <DetailRow label="Payout" value={payoutLabel(selected.payoutMethod)} />
                 </dl>
               </section>

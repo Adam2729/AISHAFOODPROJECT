@@ -45,6 +45,10 @@ export function paymentMethodLabel(method, cityOrMarket) {
       return "Moov Money";
     case "mobile_money":
       return isSpanish ? "Dinero movil" : "Mobile money";
+    case "paytech":
+      return isSpanish
+        ? "PayTech / Orange Money / Wave / Carte"
+        : "PayTech / Orange Money / Wave / Carte";
     case "wallet":
       return isSpanish ? "Billetera" : "Portefeuille";
     case "card":
@@ -65,6 +69,9 @@ export function paymentStatusLabel(status, cityOrMarket) {
       return isSpanish ? "Pagado" : "Paye";
     case "failed":
       return isSpanish ? "Fallido" : "Echoue";
+    case "cancelled":
+    case "canceled":
+      return isSpanish ? "Cancelado" : "Annule";
     case "refunded":
       return isSpanish ? "Reembolsado" : "Rembourse";
     case "pending":

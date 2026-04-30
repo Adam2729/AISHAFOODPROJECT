@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import OrderTimeline from "../components/OrderTimeline";
 import { useAppShell } from "../context/AppShellContext";
 import { fetchOrderTrackingSnapshot } from "../lib/orderTracking";
@@ -38,6 +46,12 @@ export default function ConfirmationScreen({ route, navigation }) {
   const supportAvailability = useMemo(() => getSupportAvailability(market), [market]);
   const orderReference = getCustomerSafeOrderReference(liveSnapshot?.orderNumber || orderNumber);
   const paymentStatusLabel = getCustomerPaymentStatusLabel(payment, currentStatus, market);
+  const paytechPaymentUrl = String(route?.params?.paytechPaymentUrl || "").trim();
+  const paymentPendingNotice = String(route?.params?.paymentPendingNotice || "").trim();
+  const paymentLinkError = String(route?.params?.paymentLinkError || "").trim();
+  const isPayTechPending =
+    String(payment?.method || "").trim().toLowerCase() === "paytech" &&
+    String(payment?.status || "").trim().toLowerCase() === "pending";
   const deliveryPresentation = getCustomerDeliveryPresentation(
     {
       ...(liveSnapshot || {}),
@@ -84,6 +98,8 @@ export default function ConfirmationScreen({ route, navigation }) {
         track: "Seguir pedido",
         support: "Soporte por WhatsApp",
         supportUnavailable: "Soporte no disponible",
+        paymentPendingTitle: "Pago en linea pendiente",
+        continuePayment: "Continuar pago",
         continue: "Seguir explorando",
       }
     : {
@@ -107,6 +123,8 @@ export default function ConfirmationScreen({ route, navigation }) {
         track: "Suivre la commande",
         support: "Support WhatsApp",
         supportUnavailable: "Support indisponible",
+        paymentPendingTitle: "Paiement en ligne en attente",
+        continuePayment: "Continuer le paiement",
         continue: "Continuer a explorer",
       };
 
@@ -191,6 +209,26 @@ export default function ConfirmationScreen({ route, navigation }) {
           <Text style={styles.helperText}>{text.total}: {formatPrice(totals.total, market)}</Text>
         ) : null}
       </View>
+
+      {isPayTechPending ? (
+        <View style={styles.noticeCard}>
+          <Text style={styles.sectionTitle}>{text.paymentPendingTitle}</Text>
+          <Text style={styles.noticeText}>
+            {paymentPendingNotice || paymentStatusLabel}
+          </Text>
+          {paymentLinkError ? <Text style={styles.noticeText}>{paymentLinkError}</Text> : null}
+          {paytechPaymentUrl ? (
+            <Pressable
+              style={styles.inlinePrimaryButton}
+              onPress={() => {
+                Linking.openURL(paytechPaymentUrl).catch(() => null);
+              }}
+            >
+              <Text style={styles.inlinePrimaryButtonText}>{text.continuePayment}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       {visibleDeliveryOtp || maskedDeliveryOtp || deliveryState?.label ? (
         <View style={styles.noticeCard}>
@@ -358,5 +396,17 @@ const styles = StyleSheet.create({
   },
   secondaryButtonDisabled: {
     opacity: 0.55,
+  },
+  inlinePrimaryButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    backgroundColor: "#F97316",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  inlinePrimaryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
   },
 });

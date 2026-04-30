@@ -36,7 +36,7 @@ export type CityLean = {
   riderPayoutModel: "none" | "perDelivery";
   riderPayoutFlat: number;
   platformDeliveryMargin: number;
-  paymentMethods: Array<"cash" | "orangeMoney" | "moovMoney">;
+  paymentMethods: Array<"cash" | "orangeMoney" | "moovMoney" | "paytech">;
   riderModel: "selfDelivery" | "freelance" | "hybrid";
   supportWhatsAppE164: string;
   isActive: boolean;
@@ -203,7 +203,7 @@ function seedConfig(): SeedCityInput[] {
       riderPayoutModel: "perDelivery",
       riderPayoutFlat: 1200,
       platformDeliveryMargin: 200,
-      paymentMethods: ["cash", "orangeMoney", "moovMoney"],
+      paymentMethods: ["cash", "orangeMoney", "moovMoney", "paytech"],
       riderModel: "freelance",
       supportWhatsAppE164: "",
       isActive: bamakoActive,

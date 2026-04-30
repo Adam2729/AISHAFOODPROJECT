@@ -41,7 +41,7 @@ const CitySchema = new Schema(
     platformDeliveryMargin: { type: Number, default: 0, min: 0 },
     paymentMethods: {
       type: [String],
-      enum: ["cash", "orangeMoney", "moovMoney"],
+      enum: ["cash", "orangeMoney", "moovMoney", "paytech"],
       default: ["cash"],
     },
     riderModel: {

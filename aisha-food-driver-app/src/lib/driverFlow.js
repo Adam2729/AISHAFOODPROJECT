@@ -64,6 +64,27 @@ export function getDriverAvailabilityLabel(driver) {
 }
 
 export function getOrderPaymentLabel(order) {
+  const method = String(
+    order?.paymentMethod || order?.paymentSummary?.method || ""
+  )
+    .trim()
+    .toLowerCase();
+  const status = String(
+    order?.paymentStatus || order?.paymentSummary?.status || ""
+  )
+    .trim()
+    .toLowerCase();
+  const amountToCollect = getOrderAmountToCollect(order);
+
+  if (
+    status === "paid" &&
+    typeof amountToCollect === "number" &&
+    amountToCollect <= 0 &&
+    ["paytech", "mobile_money", "orange_money", "wave", "moov_money"].includes(method)
+  ) {
+    return "Paid online";
+  }
+
   return firstText(
     [
       order?.paymentSummary?.methodLabel,

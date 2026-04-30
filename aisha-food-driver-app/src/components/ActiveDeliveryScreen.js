@@ -180,6 +180,12 @@ export default function ActiveDeliveryScreen({
   const amountToCollect = getOrderAmountToCollect(order);
   const orderTotal = order?.orderTotal ?? order?.total ?? null;
   const needsPayment = requiresPaymentConfirmation(order);
+  const isPaidOnline =
+    String(order?.paymentStatus || order?.paymentSummary?.status || "")
+      .trim()
+      .toLowerCase() === "paid" &&
+    typeof amountToCollect === "number" &&
+    amountToCollect <= 0;
   const customerPhone = getCustomerPhoneForCall(order);
   const restaurantPhone = String(order?.business?.phone || order?.contact?.businessPhone || "").trim();
   const pickupLocation = getPickupLocation(order);
@@ -402,6 +408,11 @@ export default function ActiveDeliveryScreen({
             <MetricPill label="Method" value={getOrderPaymentLabel(order)} accent={DRIVER_THEME.ORANGE_DARK} />
           </View>
           <MetricPill label="Order total" value={formatCurrency(orderTotal, currency)} />
+          {isPaidOnline ? (
+            <Text style={styles.paymentHelperText}>
+              Customer already paid online. No cash collection is required.
+            </Text>
+          ) : null}
         </SurfaceCard>
 
         {needsPayment ? (
@@ -833,6 +844,12 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 20,
     fontWeight: "900",
+  },
+  paymentHelperText: {
+    color: DRIVER_THEME.SUCCESS_TEXT,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
   },
   optionGrid: {
     flexDirection: "row",
