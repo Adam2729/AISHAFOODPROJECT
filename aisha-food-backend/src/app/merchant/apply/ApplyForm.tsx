@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ACTIVE_MERCHANT_TYPES,
   DELIVERY_TYPES,
@@ -158,11 +159,13 @@ export default function ApplyForm({
   referralCode,
   prefillMerchantType,
 }: Props) {
+  const router = useRouter();
   const [cities, setCities] = useState<CityRow[]>([]);
   const [step, setStep] = useState(0);
   const [loadingCities, setLoadingCities] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [successId, setSuccessId] = useState("");
+  const [submittedApplicationId, setSubmittedApplicationId] = useState("");
+  const [submittedSuccessfully, setSubmittedSuccessfully] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState<ApplyState>({
     ...INITIAL_STATE,
@@ -238,6 +241,23 @@ export default function ApplyForm({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function resetApplicationFlow() {
+    setSubmittedApplicationId("");
+    setSubmittedSuccessfully(false);
+    setSubmitting(false);
+    setError("");
+    setStep(0);
+    setForm({
+      ...INITIAL_STATE,
+      cityId: cityId || String(cities[0]?._id || ""),
+      country: String(
+        cities.find((entry) => entry._id === (cityId || String(cities[0]?._id || "")))?.country ||
+          ""
+      ),
+      merchantType: prefillMerchantType || INITIAL_STATE.merchantType,
+    });
+  }
+
   function updateDeliveryModePreference(value: "self_delivery" | "platform_driver" | "both") {
     setForm((current) => ({
       ...current,
@@ -280,9 +300,11 @@ export default function ApplyForm({
   }
 
   async function submit() {
+    if (submitting || submittedSuccessfully) return;
     setSubmitting(true);
     setError("");
-    setSuccessId("");
+    setSubmittedApplicationId("");
+    setSubmittedSuccessfully(false);
     try {
       const res = await fetch("/api/merchant/apply", {
         method: "POST",
@@ -325,8 +347,8 @@ export default function ApplyForm({
       if (!res.ok || !json?.ok || !json.applicationId) {
         throw new Error(pickError(json?.error, "Could not submit application."));
       }
-      setSuccessId(json.applicationId);
-      setStep(STEPS.length - 1);
+      setSubmittedApplicationId(json.applicationId);
+      setSubmittedSuccessfully(true);
     } catch (requestError: unknown) {
       setError(
         requestError instanceof Error
@@ -336,6 +358,55 @@ export default function ApplyForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (submittedSuccessfully) {
+    return (
+      <div className="mt-6">
+        <section className="rounded-[30px] border border-emerald-200 bg-emerald-50 p-6 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
+          <div className="max-w-2xl space-y-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-700">
+                Application received
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold text-emerald-950">
+                Your restaurant application has been received.
+              </h3>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-white px-4 py-4 text-sm text-slate-700">
+              <p>
+                Application ID:{" "}
+                <span className="font-semibold text-slate-950">
+                  {submittedApplicationId || "-"}
+                </span>
+              </p>
+            </div>
+
+            <p className="text-sm leading-6 text-emerald-900">
+              We will review your store details and contact you on WhatsApp/email.
+            </p>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Back to home
+              </button>
+              <button
+                type="button"
+                onClick={resetApplicationFlow}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                Submit another application
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -350,18 +421,6 @@ export default function ApplyForm({
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      ) : null}
-
-      {successId ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
-          <p className="font-semibold">Your application has been received.</p>
-          <p className="mt-1">
-            Application ID: <span className="font-semibold">{successId}</span>
-          </p>
-          <p className="mt-2">
-            We will review your store details and contact you with the next onboarding steps.
-          </p>
         </div>
       ) : null}
 
@@ -797,7 +856,7 @@ export default function ApplyForm({
               <button
                 type="button"
                 onClick={submit}
-                disabled={submitting}
+                disabled={submitting || submittedSuccessfully}
                 className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit for approval"}
