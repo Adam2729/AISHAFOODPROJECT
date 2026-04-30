@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   cityId?: string;
@@ -36,6 +37,7 @@ function pickError(error: unknown, fallback: string) {
 }
 
 export default function ApplyDriverForm({ cityId: initialCityId, referralCode }: Props) {
+  const router = useRouter();
   const [cities, setCities] = useState<CityRow[]>([]);
   const [cityId, setCityId] = useState(initialCityId || "");
   const [fullName, setFullName] = useState("");
@@ -48,7 +50,8 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
-  const [successId, setSuccessId] = useState("");
+  const [submittedSuccessfully, setSubmittedSuccessfully] = useState(false);
+  const [submittedApplicationId, setSubmittedApplicationId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -88,18 +91,37 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
   const submitDisabled = useMemo(
     () =>
       submitting ||
+      submittedSuccessfully ||
       loadingCities ||
       !cityId ||
       !fullName.trim() ||
       !phone.trim() ||
       !email.trim(),
-    [cityId, email, fullName, loadingCities, phone, submitting]
+    [cityId, email, fullName, loadingCities, phone, submitting, submittedSuccessfully]
   );
 
+  function resetApplicationFlow() {
+    setSubmittedSuccessfully(false);
+    setSubmittedApplicationId("");
+    setError("");
+    setSubmitting(false);
+    setCityId(initialCityId || String(cities[0]?._id || ""));
+    setFullName("");
+    setPhone("");
+    setEmail("");
+    setVehicleType("motorbike");
+    setAvailability("flexible");
+    setZoneLabel("");
+    setIdDocumentUrl("");
+    setNotes("");
+  }
+
   async function submit() {
+    if (submitting || submittedSuccessfully) return;
     setSubmitting(true);
     setError("");
-    setSuccessId("");
+    setSubmittedApplicationId("");
+    setSubmittedSuccessfully(false);
     try {
       const res = await fetch("/api/driver/apply", {
         method: "POST",
@@ -123,15 +145,8 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
       if (!res.ok || !json?.ok || !json.applicationId) {
         throw new Error(pickError(json?.error, "Could not submit application."));
       }
-      setSuccessId(json.applicationId);
-      setFullName("");
-      setPhone("");
-      setEmail("");
-      setVehicleType("motorbike");
-      setAvailability("flexible");
-      setZoneLabel("");
-      setIdDocumentUrl("");
-      setNotes("");
+      setSubmittedApplicationId(json.applicationId);
+      setSubmittedSuccessfully(true);
     } catch (requestError: unknown) {
       setError(
         requestError instanceof Error
@@ -141,6 +156,55 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (submittedSuccessfully) {
+    return (
+      <div className="mt-4">
+        <section className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-6 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-700">
+                Application received
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold text-emerald-950">
+                Your driver application has been received.
+              </h3>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-white px-4 py-4 text-sm text-slate-700">
+              <p>
+                Application ID:{" "}
+                <span className="font-semibold text-slate-950">
+                  {submittedApplicationId || "-"}
+                </span>
+              </p>
+            </div>
+
+            <p className="text-sm leading-6 text-emerald-900">
+              We will review your details and contact you on WhatsApp/email.
+            </p>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Back to home
+              </button>
+              <button
+                type="button"
+                onClick={resetApplicationFlow}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                Submit another application
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -157,13 +221,6 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
           {error}
         </div>
       ) : null}
-
-        {successId ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Application received. We will contact you on WhatsApp. ID:{" "}
-          <span className="font-semibold">{successId}</span>
-          </div>
-        ) : null}
 
       <div className="grid gap-3">
         <label className="text-sm font-medium text-slate-700">
