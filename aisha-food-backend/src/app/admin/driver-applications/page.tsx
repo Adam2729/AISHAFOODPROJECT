@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 type ApplicationRow = {
   applicationId: string;
+  fullName?: string;
   name: string;
-  phone: string;
+  phoneMasked?: string | null;
   email?: string | null;
+  city?: string | null;
   zoneLabel?: string | null;
   vehicleType?: string | null;
   availability?: string | null;
@@ -14,8 +16,10 @@ type ApplicationRow = {
   createdAt?: string | null;
   status: string;
   reviewedAt?: string | null;
-  rejectReason?: string | null;
+  reviewedBy?: string | null;
+  rejectionReason?: string | null;
   driverId?: string | null;
+  approvedDriverId?: string | null;
 };
 
 type ListResponse = {
@@ -52,6 +56,13 @@ export default function AdminDriverApplicationsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [approvalArtifact, setApprovalArtifact] = useState<{
+    driverName?: string;
+    email?: string;
+    temporaryPassword?: string | null;
+    loginLink?: string | null;
+    loginLinkExpiresAt?: string | null;
+  } | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -105,6 +116,7 @@ export default function AdminDriverApplicationsPage() {
     setLoading(true);
     setError("");
     setSuccess("");
+    setApprovalArtifact(null);
     try {
       const res = await fetch(`/api/admin/driver-applications/${encodeURIComponent(appId)}/approve`, {
         method: "POST",
@@ -113,9 +125,25 @@ export default function AdminDriverApplicationsPage() {
         setAuthenticated(false);
         return;
       }
-      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: unknown } | null;
+      const json = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            error?: unknown;
+            driver?: { name?: string; email?: string };
+            temporaryPassword?: string | null;
+            loginLink?: string | null;
+            loginLinkExpiresAt?: string | null;
+          }
+        | null;
       if (!res.ok || !json?.ok) throw new Error(pickError(json?.error, "Could not approve application."));
-      setSuccess("Application approved.");
+      setSuccess("Driver approved and account created.");
+      setApprovalArtifact({
+        driverName: json.driver?.name,
+        email: json.driver?.email,
+        temporaryPassword: json.temporaryPassword || null,
+        loginLink: json.loginLink || null,
+        loginLinkExpiresAt: json.loginLinkExpiresAt || null,
+      });
       await loadApps();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not approve application.");
@@ -134,6 +162,7 @@ export default function AdminDriverApplicationsPage() {
     setLoading(true);
     setError("");
     setSuccess("");
+    setApprovalArtifact(null);
     try {
       const res = await fetch(`/api/admin/driver-applications/${encodeURIComponent(appId)}/reject`, {
         method: "POST",
@@ -177,7 +206,7 @@ export default function AdminDriverApplicationsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!authenticated || !cityId) return;
@@ -217,18 +246,52 @@ export default function AdminDriverApplicationsPage() {
           <h1 className="text-2xl font-bold">Driver Applications</h1>
           <p className="text-sm text-slate-600">City-scoped review of driver onboarding.</p>
         </div>
-        <button
-          type="button"
-          onClick={loadApps}
-          disabled={loading}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
-        >
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/admin/drivers"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+          >
+            Open Driver Operations
+          </a>
+          <button
+            type="button"
+            onClick={loadApps}
+            disabled={loading}
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
       {success ? <p className="mb-3 text-sm text-emerald-700">{success}</p> : null}
+      {approvalArtifact ? (
+        <section className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+          <p className="font-semibold">Approval credentials</p>
+          <p className="mt-1">
+            Driver: {approvalArtifact.driverName || "-"}
+            {approvalArtifact.email ? ` (${approvalArtifact.email})` : ""}
+          </p>
+          {approvalArtifact.temporaryPassword ? (
+            <p className="mt-1">
+              Temporary password:{" "}
+              <span className="font-semibold">{approvalArtifact.temporaryPassword}</span>
+            </p>
+          ) : null}
+          {approvalArtifact.loginLink ? (
+            <div className="mt-2 break-all text-xs text-emerald-900">
+              <p>Login link:</p>
+              <p>{approvalArtifact.loginLink}</p>
+              {approvalArtifact.loginLinkExpiresAt ? (
+                <p className="mt-1 text-emerald-800">
+                  Expires: {formatDate(approvalArtifact.loginLinkExpiresAt)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mb-3 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-4">
         <select
@@ -278,11 +341,11 @@ export default function AdminDriverApplicationsPage() {
               {rows.length ? (
                 rows.map((row) => (
                   <tr key={row.applicationId} className="border-t border-slate-100 align-top">
-                    <td className="py-2">{row.name}</td>
-                    <td className="py-2">{row.phone}</td>
+                    <td className="py-2">{row.fullName || row.name}</td>
+                    <td className="py-2">{row.phoneMasked || "-"}</td>
                     <td className="py-2">{row.email || "-"}</td>
                     <td className="py-2">
-                      <div>{row.zoneLabel || "-"}</div>
+                      <div>{row.city || row.zoneLabel || "-"}</div>
                       <div className="text-xs text-slate-500">
                         {[row.vehicleType, row.availability].filter(Boolean).join(" / ") || "-"}
                       </div>
@@ -293,8 +356,8 @@ export default function AdminDriverApplicationsPage() {
                         <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase">
                           {row.status}
                         </span>
-                        {row.rejectReason ? <span className="text-red-700">Reason: {row.rejectReason}</span> : null}
-                        {row.driverId ? <span className="text-emerald-700">Driver: {row.driverId}</span> : null}
+                        {row.rejectionReason ? <span className="text-red-700">Reason: {row.rejectionReason}</span> : null}
+                        {row.approvedDriverId ? <span className="text-emerald-700">Driver: {row.approvedDriverId}</span> : null}
                       </div>
                     </td>
                     <td className="py-2">

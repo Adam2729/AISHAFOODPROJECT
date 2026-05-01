@@ -42,8 +42,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         $set: {
           status: "rejected",
           reviewedAt: new Date(),
+          reviewedBy: "admin_key",
           reviewedByAdminId: null,
           rejectReason: reasonRaw,
+          rejectionReason: reasonRaw,
         },
       }
     );

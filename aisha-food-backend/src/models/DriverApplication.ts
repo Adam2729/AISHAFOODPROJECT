@@ -10,9 +10,11 @@ const DriverApplicationSchema = new mongoose.Schema(
       index: true,
     },
     name: { type: String, required: true, trim: true, maxlength: 80 },
+    fullName: { type: String, default: null, trim: true, maxlength: 80 },
     phone: { type: String, required: true, trim: true, maxlength: 30 },
     phoneHash: { type: String, required: true, index: true },
     email: { type: String, required: true, trim: true, lowercase: true, maxlength: 160 },
+    city: { type: String, default: null, trim: true, maxlength: 120 },
     zoneLabel: { type: String, default: null, trim: true, maxlength: 80 },
     vehicleType: { type: String, default: null, trim: true, maxlength: 40 },
     availability: { type: String, default: null, trim: true, maxlength: 80 },
@@ -30,9 +32,12 @@ const DriverApplicationSchema = new mongoose.Schema(
     confirmationEmailError: { type: String, default: null, trim: true, maxlength: 280 },
     createdByIpHash: { type: String, default: null },
     reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: String, default: null, trim: true, maxlength: 80 },
     reviewedByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     rejectReason: { type: String, default: null, trim: true, maxlength: 280 },
+    rejectionReason: { type: String, default: null, trim: true, maxlength: 280 },
     driverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
+    approvedDriverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     referrerDriverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     referralRewardAmount: { type: Number, default: 0, min: 0 },
     referralBonusAppliedAt: { type: Date, default: null },
@@ -51,7 +56,9 @@ if (existingDriverApplicationModel) {
     path?: (name: string) => unknown;
   };
   const needsReferralMerge =
+    !existingSchema.path?.("fullName") ||
     !existingSchema.path?.("email") ||
+    !existingSchema.path?.("city") ||
     !existingSchema.path?.("vehicleType") ||
     !existingSchema.path?.("availability") ||
     !existingSchema.path?.("documentsStatus") ||
@@ -61,6 +68,9 @@ if (existingDriverApplicationModel) {
     !existingSchema.path?.("confirmationEmailProvider") ||
     !existingSchema.path?.("confirmationEmailSentAt") ||
     !existingSchema.path?.("confirmationEmailError") ||
+    !existingSchema.path?.("reviewedBy") ||
+    !existingSchema.path?.("rejectionReason") ||
+    !existingSchema.path?.("approvedDriverId") ||
     !existingSchema.path?.("referrerDriverId") ||
     !existingSchema.path?.("referralRewardAmount") ||
     !existingSchema.path?.("referralBonusAppliedAt");

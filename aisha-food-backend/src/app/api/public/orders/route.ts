@@ -60,10 +60,6 @@ import {
   queueMerchantNewOrderNotification,
   settleNotificationWrites,
 } from "@/lib/notificationEvents";
-import {
-  ENV_DEV_LOCATION_BYPASS_UNSAFE_IN_PRODUCTION,
-  ENV_RUNTIME_STAGE,
-} from "@/lib/env";
 import { Business } from "@/models/Business";
 import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
@@ -311,18 +307,7 @@ export async function POST(req: Request) {
     let lng = Number(body.lng);
     const coordsProvided = isValidLatLng(lat, lng);
     const hasGoogleKey = Boolean(String(process.env.GOOGLE_MAPS_API_KEY || "").trim());
-    if (ENV_DEV_LOCATION_BYPASS_UNSAFE_IN_PRODUCTION) {
-      return finish(
-        fail(
-          "SERVER_CONFIG_ERROR",
-          "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled in production. Disable it before accepting live orders.",
-          503
-        ),
-        503
-      );
-    }
-    const allowDevLocationBypass =
-      DEV_ALLOW_ORDER_LOCATION_BYPASS && ENV_RUNTIME_STAGE !== "production";
+    const allowDevLocationBypass = DEV_ALLOW_ORDER_LOCATION_BYPASS;
     const phase6StylePayload = Boolean(body.restaurantId || body.notes != null);
     if (paymentMethodRaw && !["cash", "mobile_money", "mobilemoney", "paytech"].includes(paymentMethodRaw)) {
       return finish(

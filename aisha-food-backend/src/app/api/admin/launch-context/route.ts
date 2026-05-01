@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     if (ENV_DEV_ALLOW_ORDER_LOCATION_BYPASS) {
       warnings.push(
         ENV_DEV_LOCATION_BYPASS_UNSAFE_IN_PRODUCTION
-          ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Unsafe for production. Live order creation must be blocked until it is disabled."
+          ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Unsafe for production. Orders can continue, but this should be disabled for live operations."
           : runtimeStage === "preview"
             ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Preview testing can continue, but this is unsafe for production."
             : "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Allowed for local UK testing only. Disable it before preview or production."

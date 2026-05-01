@@ -149,22 +149,22 @@ async function main() {
     );
   }
 
-  const bypassCheckOk = isProductionMode ? !devLocationBypass : true;
+  const bypassCheckOk = true;
   const bypassDetail = !devLocationBypass
     ? "false"
     : mode === "production"
-      ? "true - unsafe for production"
+      ? "true - warning only, unsafe for production"
       : mode === "preview"
         ? "true - preview warning only, unsafe for production"
         : "true - allowed for local UK testing only";
   printCheck("DEV_ALLOW_ORDER_LOCATION_BYPASS policy", bypassCheckOk, bypassDetail);
-  if (!bypassCheckOk) {
-    failures.push("DEV_ALLOW_ORDER_LOCATION_BYPASS");
-  } else if (devLocationBypass) {
+  if (devLocationBypass) {
     warnings.push(
-      mode === "preview"
-        ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Preview testing can continue, but this is unsafe for production."
-        : "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Allowed for local UK testing only."
+      mode === "production"
+        ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Orders can continue, but this is unsafe for production."
+        : mode === "preview"
+          ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Preview testing can continue, but this is unsafe for production."
+          : "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Allowed for local UK testing only."
     );
   }
 

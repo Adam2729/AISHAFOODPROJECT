@@ -1,256 +1,296 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type CityRow = {
+  _id: string;
+  name?: string;
+  code?: string;
+};
+
+type ApplicationRow = {
+  applicationId: string;
+  fullName?: string;
+  name?: string;
+  phoneMasked?: string | null;
+  email?: string | null;
+  city?: string | null;
+  zoneLabel?: string | null;
+  vehicleType?: string | null;
+  availability?: string | null;
+  createdAt?: string | null;
+  status: string;
+  approvedDriverId?: string | null;
+  rejectionReason?: string | null;
+};
 
 type DriverRow = {
   id: string;
   name: string;
-  isActive: boolean;
-  accountStatus?: string;
-  availability?: string;
-  breakStartedAt?: string | null;
-  breakReason?: string | null;
-  lastSeenAt?: string | null;
-  lastLocationUpdatedAt?: string | null;
-  activeAssignedOrderCount?: number;
-  zoneLabel?: string | null;
-  notes?: string | null;
-  hasPhone?: boolean;
+  email?: string | null;
   phoneMasked?: string | null;
+  availability?: string | null;
+  accountStatus?: string | null;
+  isActive?: boolean;
+  zoneLabel?: string | null;
+  activeAssignedOrderCount?: number;
+  lastLocationUpdatedAt?: string | null;
   createdAt?: string | null;
-  updatedAt?: string | null;
 };
 
-type DraftRow = {
-  name: string;
-  isActive: boolean;
-  zoneLabel: string;
-  notes: string;
-  phoneE164: string;
-};
-
-type ApiResponse = {
-  ok: boolean;
-  rows?: DriverRow[];
-  driver?: DriverRow;
-  phoneE164?: string | null;
-  url?: string;
+type CitiesResponse = {
+  ok?: boolean;
+  cities?: CityRow[];
   error?: { message?: string } | string;
 };
 
-type CityOption = {
-  id: string;
-  name: string;
-  code: string;
+type DriverApplicationsResponse = {
+  ok?: boolean;
+  rows?: ApplicationRow[];
+  total?: number;
+  error?: { message?: string } | string;
 };
 
-function getErrorMessage(json: ApiResponse | null, fallback: string) {
-  return (typeof json?.error === "string" ? json.error : json?.error?.message) || fallback;
+type DriversResponse = {
+  ok?: boolean;
+  rows?: DriverRow[];
+  total?: number;
+  hiddenCount?: number;
+  error?: { message?: string } | string;
+};
+
+type ApprovalResponse = {
+  ok?: boolean;
+  error?: { message?: string } | string;
+  driver?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    phoneMasked?: string | null;
+  };
+  temporaryPassword?: string | null;
+  loginLink?: string | null;
+  loginLinkExpiresAt?: string | null;
+};
+
+function pickError(error: unknown, fallback: string) {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: string }).message || fallback);
+  }
+  return fallback;
 }
 
-function formatDateTime(value?: string | null) {
+function formatDate(value: unknown) {
   if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString("en-GB", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+async function copyText(value: string) {
+  if (!value || !navigator?.clipboard?.writeText) return false;
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default function AdminDriversPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [cities, setCities] = useState<CityRow[]>([]);
+  const [cityId, setCityId] = useState("");
+  const [pendingApplications, setPendingApplications] = useState<ApplicationRow[]>([]);
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
-  const [cities, setCities] = useState<CityOption[]>([]);
-  const [selectedCityId, setSelectedCityId] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, DraftRow>>({});
-  const [revealedPhones, setRevealedPhones] = useState<Record<string, string>>({});
-  const [linkByDriver, setLinkByDriver] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState("");
+  const [showInactiveTestDrivers, setShowInactiveTestDrivers] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [createName, setCreateName] = useState("");
-  const [createPhone, setCreatePhone] = useState("");
-  const [createZone, setCreateZone] = useState("");
-  const [createNotes, setCreateNotes] = useState("");
-  const [createActive, setCreateActive] = useState(true);
+  const [hiddenDriversCount, setHiddenDriversCount] = useState(0);
+  const [revealedPhones, setRevealedPhones] = useState<Record<string, string>>({});
+  const [approvalArtifact, setApprovalArtifact] = useState<{
+    driverName?: string;
+    email?: string;
+    temporaryPassword?: string | null;
+    loginLink?: string | null;
+    loginLinkExpiresAt?: string | null;
+  } | null>(null);
+  const [lastGeneratedLink, setLastGeneratedLink] = useState<{
+    driverName?: string;
+    linkUrl?: string | null;
+    expiresAt?: string | null;
+  } | null>(null);
 
-  function initializeDraftRows(rows: DriverRow[]) {
-    const next: Record<string, DraftRow> = {};
-    for (const row of rows) {
-      next[row.id] = {
-        name: String(row.name || ""),
-        isActive: Boolean(row.isActive),
-        zoneLabel: String(row.zoneLabel || ""),
-        notes: String(row.notes || ""),
-        phoneE164: "",
-      };
+  const selectedCity = useMemo(
+    () => cities.find((row) => row._id === cityId) || null,
+    [cities, cityId]
+  );
+
+  async function loadCities() {
+    const res = await fetch("/api/admin/cities", { cache: "no-store" });
+    if (res.status === 401) {
+      setAuthenticated(false);
+      return;
     }
-    setDrafts(next);
+    const json = (await res.json().catch(() => null)) as CitiesResponse | null;
+    if (!res.ok || !json?.ok || !Array.isArray(json.cities)) {
+      throw new Error(pickError(json?.error, "Could not load cities."));
+    }
+    setCities(json.cities);
+    if (!cityId && json.cities.length) {
+      setCityId(String(json.cities[0]._id || ""));
+    }
   }
 
-  async function loadDrivers() {
-    if (!authenticated || !selectedCityId) return;
+  async function loadPendingApplications(nextCityId: string) {
+    const params = new URLSearchParams({
+      cityId: nextCityId,
+      status: "pending",
+      limit: "100",
+    });
+    const res = await fetch(`/api/admin/driver-applications?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (res.status === 401) {
+      setAuthenticated(false);
+      return;
+    }
+    const json = (await res.json().catch(() => null)) as DriverApplicationsResponse | null;
+    if (!res.ok || !json?.ok) {
+      throw new Error(pickError(json?.error, "Could not load driver applications."));
+    }
+    setPendingApplications(Array.isArray(json.rows) ? json.rows : []);
+  }
+
+  async function loadDrivers(nextCityId: string) {
+    const params = new URLSearchParams({
+      cityId: nextCityId,
+      status: "all",
+      limit: "200",
+    });
+    if (showInactiveTestDrivers) {
+      params.set("includeHidden", "1");
+    }
+    const res = await fetch(`/api/admin/drivers?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (res.status === 401) {
+      setAuthenticated(false);
+      return;
+    }
+    const json = (await res.json().catch(() => null)) as DriversResponse | null;
+    if (!res.ok || !json?.ok) {
+      throw new Error(pickError(json?.error, "Could not load drivers."));
+    }
+    setDrivers(Array.isArray(json.rows) ? json.rows : []);
+    setHiddenDriversCount(Number(json.hiddenCount || 0));
+  }
+
+  async function loadAll(nextCityId = cityId) {
+    if (!authenticated || !nextCityId) return;
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({
-        cityId: selectedCityId,
-      });
-      const res = await fetch(`/api/admin/drivers?${params.toString()}`, { cache: "no-store" });
-      if (res.status === 401) {
-        setAuthenticated(false);
-        return;
-      }
-      const json = (await res.json().catch(() => null)) as ApiResponse | null;
-      if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json, "Could not load drivers."));
-      }
-      const rows = Array.isArray(json.rows) ? json.rows : [];
-      setDrivers(rows);
-      initializeDraftRows(rows);
+      await Promise.all([loadPendingApplications(nextCityId), loadDrivers(nextCityId)]);
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Could not load drivers.");
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not load driver operations."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadCities() {
-    if (!authenticated) return;
+  async function approveApplication(applicationId: string) {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    setApprovalArtifact(null);
     try {
-      const res = await fetch("/api/admin/cities", {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/admin/driver-applications/${encodeURIComponent(applicationId)}/approve`,
+        { method: "POST" }
+      );
       if (res.status === 401) {
         setAuthenticated(false);
         return;
       }
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        cities?: Array<{ _id: string; name?: string; code?: string }>;
-        error?: { message?: string } | string;
-      } | null;
+      const json = (await res.json().catch(() => null)) as ApprovalResponse | null;
       if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json as ApiResponse, "Could not load cities."));
+        throw new Error(pickError(json?.error, "Could not approve driver application."));
       }
-      const rows =
-        Array.isArray(json.cities) && json.cities.length
-          ? json.cities.map((c) => ({
-              id: String(c._id),
-              name: String(c.name || ""),
-              code: String(c.code || ""),
-            }))
-          : [];
-      setCities(rows);
-      if (!selectedCityId && rows.length) {
-        const bamako = rows.find((c) => c.code.toUpperCase() === "BKO");
-        setSelectedCityId(String((bamako || rows[0]).id));
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Could not load cities.");
+      setSuccess("Driver approved and account created.");
+      setApprovalArtifact({
+        driverName: json.driver?.name,
+        email: json.driver?.email,
+        temporaryPassword: json.temporaryPassword || null,
+        loginLink: json.loginLink || null,
+        loginLinkExpiresAt: json.loginLinkExpiresAt || null,
+      });
+      await loadAll();
+    } catch (requestError: unknown) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not approve driver application."
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function createDriver() {
-    if (!createName.trim()) {
-      setError("Driver name is required.");
+  async function rejectApplication(applicationId: string) {
+    const reason = window.prompt("Rejection reason", "") || "";
+    if (!reason.trim()) {
+      setError("Rejection reason is required.");
       return;
     }
-    if (!selectedCityId) {
-      setError("Select a city first.");
-      return;
-    }
-    setSaving("create");
+    setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const res = await fetch("/api/admin/drivers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: createName.trim(),
-          phoneE164: createPhone.trim(),
-          zoneLabel: createZone.trim(),
-          notes: createNotes.trim(),
-          isActive: createActive,
-          cityId: selectedCityId,
-        }),
-      });
+      const res = await fetch(
+        `/api/admin/driver-applications/${encodeURIComponent(applicationId)}/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        }
+      );
       if (res.status === 401) {
         setAuthenticated(false);
         return;
       }
-      const json = (await res.json().catch(() => null)) as ApiResponse | null;
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: unknown } | null;
       if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json, "Could not create driver."));
+        throw new Error(pickError(json?.error, "Could not reject driver application."));
       }
-      setCreateName("");
-      setCreatePhone("");
-      setCreateZone("");
-      setCreateNotes("");
-      setCreateActive(true);
-      setSuccess("Driver created.");
-      await loadDrivers();
+      setSuccess("Driver application rejected.");
+      await loadAll();
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Could not create driver.");
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not reject driver application."
+      );
     } finally {
-      setSaving("");
-    }
-  }
-
-  async function saveDriver(driverId: string) {
-    const draft = drafts[driverId];
-    if (!draft) return;
-    setSaving(`save:${driverId}`);
-    setError("");
-    setSuccess("");
-    try {
-      const payload: Record<string, unknown> = {
-        action: "update",
-        driverId,
-        name: draft.name.trim(),
-        zoneLabel: draft.zoneLabel.trim(),
-        notes: draft.notes.trim(),
-        isActive: Boolean(draft.isActive),
-      };
-      if (draft.phoneE164.trim()) {
-        payload.phoneE164 = draft.phoneE164.trim();
-      }
-      const res = await fetch("/api/admin/drivers", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.status === 401) {
-        setAuthenticated(false);
-        return;
-      }
-      const json = (await res.json().catch(() => null)) as ApiResponse | null;
-      if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json, "Could not update driver."));
-      }
-      setSuccess("Driver updated.");
-      await loadDrivers();
-    } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Could not update driver.");
-    } finally {
-      setSaving("");
+      setLoading(false);
     }
   }
 
   async function revealPhone(driverId: string) {
-    const confirm = window.prompt("Type REVEAL to show raw phone.", "");
-    if (confirm !== "REVEAL") return;
-    const reason = window.prompt("Reason for reveal (min 10 chars).", "") || "";
+    const reason = window.prompt("Reason for revealing the full phone number", "") || "";
     if (reason.trim().length < 10) {
-      setError("Reason must be at least 10 characters.");
+      setError("Reveal reason must be at least 10 characters.");
       return;
     }
-    setSaving(`reveal:${driverId}`);
+    setLoading(true);
     setError("");
+    setSuccess("");
     try {
       const res = await fetch("/api/admin/drivers", {
         method: "PATCH",
@@ -258,37 +298,68 @@ export default function AdminDriversPage() {
         body: JSON.stringify({
           action: "reveal_phone",
           driverId,
-          confirm: "REVEAL",
-          reason: reason.trim(),
+          reason,
         }),
       });
       if (res.status === 401) {
         setAuthenticated(false);
         return;
       }
-      const json = (await res.json().catch(() => null)) as ApiResponse | null;
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: unknown; phoneE164?: string | null }
+        | null;
       if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json, "Could not reveal phone."));
+        throw new Error(pickError(json?.error, "Could not reveal phone number."));
       }
-      setRevealedPhones((prev) => ({
-        ...prev,
+      setRevealedPhones((current) => ({
+        ...current,
         [driverId]: String(json.phoneE164 || ""),
       }));
+      setSuccess("Driver phone revealed for this session.");
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Could not reveal phone.");
+      setError(
+        requestError instanceof Error ? requestError.message : "Could not reveal phone number."
+      );
     } finally {
-      setSaving("");
+      setLoading(false);
     }
   }
 
-  async function generateLink(driverId: string) {
-    const confirm = window.prompt("Type REVEAL LINK to generate a driver URL.", "");
-    if (confirm !== "REVEAL LINK") return;
-    if (!selectedCityId) {
-      setError("Select a city before generating links.");
-      return;
+  async function toggleDriverActive(driver: DriverRow) {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/admin/drivers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          driverId: driver.id,
+          isActive: !driver.isActive,
+        }),
+      });
+      if (res.status === 401) {
+        setAuthenticated(false);
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: unknown } | null;
+      if (!res.ok || !json?.ok) {
+        throw new Error(pickError(json?.error, "Could not update driver account."));
+      }
+      setSuccess(!driver.isActive ? "Driver account activated." : "Driver account deactivated.");
+      await loadDrivers(cityId);
+    } catch (requestError: unknown) {
+      setError(
+        requestError instanceof Error ? requestError.message : "Could not update driver account."
+      );
+    } finally {
+      setLoading(false);
     }
-    setSaving(`link:${driverId}`);
+  }
+
+  async function generateLoginLink(driver: DriverRow) {
+    setLoading(true);
     setError("");
     setSuccess("");
     try {
@@ -297,365 +368,413 @@ export default function AdminDriversPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "generate_link",
-          driverId,
-          confirm: "REVEAL LINK",
-          cityId: selectedCityId,
+          driverId: driver.id,
+          cityId,
         }),
       });
       if (res.status === 401) {
         setAuthenticated(false);
         return;
       }
-      const json = (await res.json().catch(() => null)) as ApiResponse | null;
+      const json = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            error?: unknown;
+            linkUrl?: string | null;
+            expiresAt?: string | null;
+          }
+        | null;
       if (!res.ok || !json?.ok) {
-        throw new Error(getErrorMessage(json, "Could not generate driver link."));
+        throw new Error(pickError(json?.error, "Could not create driver login link."));
       }
-      const link = String(json.url || "");
-      setLinkByDriver((prev) => ({ ...prev, [driverId]: link }));
-      if (link && navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(link).catch(() => null);
-      }
-      setSuccess("Driver link generated.");
+      setSuccess("Driver login link generated.");
+      setLastGeneratedLink({
+        driverName: driver.name,
+        linkUrl: json.linkUrl || null,
+        expiresAt: json.expiresAt || null,
+      });
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Could not generate driver link.");
+      setError(
+        requestError instanceof Error ? requestError.message : "Could not create driver login link."
+      );
     } finally {
-      setSaving("");
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    let mounted = true;
-
+    let active = true;
     async function bootstrap() {
       try {
         const res = await fetch("/api/admin/session", { cache: "no-store" });
         const json = (await res.json().catch(() => null)) as { authenticated?: boolean } | null;
         const allowed = Boolean(res.ok && json?.authenticated);
-        if (!mounted) return;
+        if (!active) return;
         setAuthenticated(allowed);
+        if (!allowed) return;
+        await loadCities();
       } catch {
-        if (!mounted) return;
+        if (!active) return;
         setAuthenticated(false);
       }
     }
-
     bootstrap().catch(() => null);
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!authenticated) return;
-    loadCities();
-  }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!authenticated || !cityId) return;
+    loadAll(cityId).catch(() => null);
+  }, [authenticated, cityId, showInactiveTestDrivers]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!authenticated || !selectedCityId) return;
-    loadDrivers();
-  }, [authenticated, selectedCityId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (authenticated === null) return null;
+  if (authenticated === null) {
+    return (
+      <main className="mx-auto min-h-screen max-w-7xl p-6">
+        <h1 className="text-2xl font-bold">Driver Operations</h1>
+        <p className="mt-2 text-sm text-slate-600">Checking secure admin session...</p>
+      </main>
+    );
+  }
 
   if (!authenticated) {
     return (
-      <main className="mx-auto min-h-screen max-w-5xl p-6">
-        <h1 className="text-2xl font-bold">Drivers</h1>
+      <main className="mx-auto min-h-screen max-w-7xl p-6">
+        <h1 className="text-2xl font-bold">Driver Operations</h1>
         <p className="mt-2 text-sm text-red-600">
           Admin access requires a secure browser session.
         </p>
-        <Link
+        <a
           href="/admin/access?next=/admin/drivers"
           className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
         >
           Open admin access
-        </Link>
+        </a>
       </main>
     );
   }
 
   return (
     <main className="mx-auto min-h-screen max-w-7xl p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Dispatch Drivers</h1>
-          <p className="text-sm text-slate-600">Create, update, and manage driver links.</p>
+          <h1 className="text-2xl font-bold">Driver Operations</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Review pending applications, manage approved driver accounts, and generate secure login links.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">
-            <span>Link city</span>
-            <select
-              value={selectedCityId}
-              onChange={(event) => setSelectedCityId(event.target.value)}
-              className="rounded border border-slate-300 px-2 py-1 text-sm"
-            >
-              {!selectedCityId ? <option value="">Select</option> : null}
-              {cities.map((city) => (
-                <option key={city.id} value={city.id}>
-                  {city.code || city.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-wrap gap-2">
           <Link
-            href="/admin/ops"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+            href="/admin/driver-applications"
+            className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-800"
           >
-            Ops Center
+            Review Driver Applications
           </Link>
           <button
             type="button"
-            onClick={loadDrivers}
-            disabled={loading || !selectedCityId}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+            onClick={() => loadAll()}
+            disabled={loading || !cityId}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
 
-      {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
-      {success ? <p className="mb-3 text-sm text-emerald-700">{success}</p> : null}
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm font-semibold text-slate-700">
+            City
+            <select
+              value={cityId}
+              onChange={(event) => setCityId(String(event.target.value || ""))}
+              className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Select city</option>
+              {cities.map((city) => (
+                <option key={city._id} value={city._id}>
+                  {(city.code || "").toUpperCase()} {city.name ? `- ${city.name}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <section className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-lg font-semibold">Create Driver</h2>
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5">
-          <input
-            value={createName}
-            onChange={(event) => setCreateName(event.target.value)}
-            placeholder="Name"
-            className="rounded border border-slate-300 px-2 py-2 text-sm"
-          />
-          <input
-            value={createPhone}
-            onChange={(event) => setCreatePhone(event.target.value)}
-            placeholder="Phone E164 (optional)"
-            className="rounded border border-slate-300 px-2 py-2 text-sm"
-          />
-          <input
-            value={createZone}
-            onChange={(event) => setCreateZone(event.target.value)}
-            placeholder="Zone label"
-            className="rounded border border-slate-300 px-2 py-2 text-sm"
-          />
-          <input
-            value={createNotes}
-            onChange={(event) => setCreateNotes(event.target.value)}
-            placeholder="Notes"
-            className="rounded border border-slate-300 px-2 py-2 text-sm"
-          />
-          <label className="flex items-center gap-2 rounded border border-slate-300 px-2 py-2 text-sm">
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
-              checked={createActive}
-              onChange={(event) => setCreateActive(event.target.checked)}
+              checked={showInactiveTestDrivers}
+              onChange={(event) => setShowInactiveTestDrivers(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
             />
-            Active
+            Show inactive/test drivers
           </label>
         </div>
-        <button
-          type="button"
-          disabled={saving === "create"}
-          onClick={createDriver}
-          className="mt-3 rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-        >
-          {saving === "create" ? "Creating..." : "Create driver"}
-        </button>
+
+        {selectedCity ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Managing driver operations for {selectedCity.name || selectedCity.code || selectedCity._id}.
+          </p>
+        ) : null}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-lg font-semibold">Drivers</h2>
-        <div className="overflow-x-auto">
+      {error ? (
+        <section className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </section>
+      ) : null}
+
+      {success ? (
+        <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {success}
+        </section>
+      ) : null}
+
+      {approvalArtifact ? (
+        <section className="mt-4 rounded-2xl border border-emerald-200 bg-white p-4">
+          <h2 className="text-base font-semibold text-slate-950">Latest approval credentials</h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Driver: {approvalArtifact.driverName || "-"}
+            {approvalArtifact.email ? ` (${approvalArtifact.email})` : ""}
+          </p>
+          {approvalArtifact.temporaryPassword ? (
+            <p className="mt-2 text-sm text-slate-700">
+              Temporary password:{" "}
+              <span className="font-semibold text-slate-950">
+                {approvalArtifact.temporaryPassword}
+              </span>
+            </p>
+          ) : null}
+          {approvalArtifact.loginLink ? (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+              <p className="font-semibold text-slate-950">One-time login link</p>
+              <p className="mt-2 break-all">{approvalArtifact.loginLink}</p>
+              {approvalArtifact.loginLinkExpiresAt ? (
+                <p className="mt-2">Expires: {formatDate(approvalArtifact.loginLinkExpiresAt)}</p>
+              ) : null}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => copyText(String(approvalArtifact.loginLink || ""))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold"
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="mt-6">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Pending driver applications</h2>
+            <p className="text-sm text-slate-500">
+              Approve applications to create active driver accounts.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {pendingApplications.length} pending
+          </span>
+        </div>
+
+        {pendingApplications.length ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {pendingApplications.map((application) => (
+              <article
+                key={application.applicationId}
+                className="rounded-2xl border border-slate-200 bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-950">
+                      {application.fullName || application.name || "Driver application"}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {application.phoneMasked || "-"}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold uppercase text-orange-700">
+                    {application.status}
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-2 text-sm text-slate-700">
+                  <p>Email: {application.email || "-"}</p>
+                  <p>City: {application.city || selectedCity?.name || "-"}</p>
+                  <p>Vehicle: {application.vehicleType || "-"}</p>
+                  <p>Availability: {application.availability || "-"}</p>
+                  <p>Submitted: {formatDate(application.createdAt)}</p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => approveApplication(application.applicationId)}
+                    disabled={loading}
+                    className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => rejectApplication(application.applicationId)}
+                    disabled={loading}
+                    className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+            No pending driver applications for this city.
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Approved drivers</h2>
+            <p className="text-sm text-slate-500">
+              Active driver accounts, availability status, and support actions.
+            </p>
+          </div>
+          {hiddenDriversCount > 0 && !showInactiveTestDrivers ? (
+            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+              {hiddenDriversCount} inactive/test rows hidden
+            </span>
+          ) : null}
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="pb-2">Name</th>
-                <th className="pb-2">Zone</th>
-                <th className="pb-2">Phone</th>
-                <th className="pb-2">Ops state</th>
-                <th className="pb-2">Active</th>
-                <th className="pb-2">Notes</th>
-                <th className="pb-2">Actions</th>
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Driver</th>
+                <th className="px-4 py-3 font-semibold">Phone</th>
+                <th className="px-4 py-3 font-semibold">City / zone</th>
+                <th className="px-4 py-3 font-semibold">Availability</th>
+                <th className="px-4 py-3 font-semibold">Account</th>
+                <th className="px-4 py-3 font-semibold">Active orders</th>
+                <th className="px-4 py-3 font-semibold">Last location</th>
+                <th className="px-4 py-3 font-semibold">Created</th>
+                <th className="px-4 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {drivers.length ? (
-                drivers.map((driver) => {
-                  const draft = drafts[driver.id] || {
-                    name: driver.name,
-                    isActive: driver.isActive,
-                    zoneLabel: String(driver.zoneLabel || ""),
-                    notes: String(driver.notes || ""),
-                    phoneE164: "",
-                  };
-                  const phoneValue = revealedPhones[driver.id] || "";
-                  const linkValue = linkByDriver[driver.id] || "";
-                  return (
-                    <tr key={driver.id} className="border-t border-slate-100 align-top">
-                      <td className="py-2">
-                        <input
-                          value={draft.name}
-                          onChange={(event) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [driver.id]: {
-                                ...draft,
-                                name: event.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full min-w-[180px] rounded border border-slate-300 px-2 py-1 text-sm"
-                        />
-                      </td>
-                      <td className="py-2">
-                        <input
-                          value={draft.zoneLabel}
-                          onChange={(event) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [driver.id]: {
-                                ...draft,
-                                zoneLabel: event.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full min-w-[140px] rounded border border-slate-300 px-2 py-1 text-sm"
-                        />
-                      </td>
-                      <td className="py-2">
-                        <div className="space-y-1">
-                          <div>{driver.phoneMasked || "-"}</div>
-                          {phoneValue ? (
-                            <div className="font-mono text-xs text-amber-700">{phoneValue}</div>
-                          ) : null}
-                          <input
-                            value={draft.phoneE164}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [driver.id]: {
-                                  ...draft,
-                                  phoneE164: event.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="New phone (optional)"
-                            className="w-full min-w-[160px] rounded border border-slate-300 px-2 py-1 text-xs"
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2">
-                        <div className="min-w-[190px] space-y-1 text-xs text-slate-600">
-                          <div>
-                            <span className="font-semibold text-slate-900">Availability:</span>{" "}
-                            {driver.availability || "offline"}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-slate-900">Account:</span>{" "}
-                            {driver.accountStatus || (driver.isActive ? "active" : "inactive")}
-                          </div>
-                          {driver.breakReason ? (
-                            <div>
-                              <span className="font-semibold text-slate-900">Break:</span>{" "}
-                              {driver.breakReason} since {formatDateTime(driver.breakStartedAt)}
-                            </div>
-                          ) : null}
-                          <div>
-                            <span className="font-semibold text-slate-900">Active orders:</span>{" "}
-                            {Number(driver.activeAssignedOrderCount || 0)}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-slate-900">Location:</span>{" "}
-                            {formatDateTime(driver.lastLocationUpdatedAt)}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-2">
-                        <label className="inline-flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={draft.isActive}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [driver.id]: {
-                                  ...draft,
-                                  isActive: event.target.checked,
-                                },
-                              }))
-                            }
-                          />
-                          <span>{draft.isActive ? "yes" : "no"}</span>
-                        </label>
-                      </td>
-                      <td className="py-2">
-                        <input
-                          value={draft.notes}
-                          onChange={(event) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [driver.id]: {
-                                ...draft,
-                                notes: event.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full min-w-[180px] rounded border border-slate-300 px-2 py-1 text-sm"
-                        />
-                      </td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap gap-1">
-                          <button
-                            type="button"
-                            disabled={Boolean(saving)}
-                            onClick={() => saveDriver(driver.id)}
-                            className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
-                          >
-                            {saving === `save:${driver.id}` ? "Saving..." : "Save"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={Boolean(saving)}
-                            onClick={() => revealPhone(driver.id)}
-                            className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
-                          >
-                            {saving === `reveal:${driver.id}` ? "Revealing..." : "Reveal phone"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={Boolean(saving)}
-                            onClick={() => generateLink(driver.id)}
-                            className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
-                          >
-                            {saving === `link:${driver.id}` ? "Generating..." : "Generate link"}
-                          </button>
-                        </div>
-                        {linkValue ? (
-                          <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 p-2 text-xs">
-                            <div className="break-all font-mono">{linkValue}</div>
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard?.writeText(linkValue).catch(() => null)}
-                              className="mt-1 rounded border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700"
-                            >
-                              Copy link
-                            </button>
-                          </div>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })
+                drivers.map((driver) => (
+                  <tr key={driver.id} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-950">{driver.name}</div>
+                      {driver.email ? (
+                        <div className="mt-1 text-xs text-slate-500">{driver.email}</div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{revealedPhones[driver.id] || driver.phoneMasked || "-"}</div>
+                      {revealedPhones[driver.id] ? (
+                        <div className="mt-1 text-xs text-amber-700">Revealed for this session</div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{selectedCity?.name || selectedCity?.code || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-500">{driver.zoneLabel || "-"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase text-slate-700">
+                        {driver.availability || "offline"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase text-slate-700">
+                        {driver.accountStatus || "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{driver.activeAssignedOrderCount || 0}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {formatDate(driver.lastLocationUpdatedAt)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {formatDate(driver.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => revealPhone(driver.id)}
+                          disabled={loading}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                        >
+                          Reveal phone
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => generateLoginLink(driver)}
+                          disabled={loading}
+                          className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-800 disabled:opacity-50"
+                        >
+                          Generate login link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleDriverActive(driver)}
+                          disabled={loading}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                        >
+                          {driver.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-3 text-center text-slate-500">
-                    No drivers found.
+                  <td colSpan={9} className="px-4 py-6 text-center text-sm text-slate-500">
+                    No drivers found for this city.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="text-lg font-semibold text-slate-950">Dispatch support tools</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Generate secure login links for approved drivers. The link uses the real driver session exchange flow.
+        </p>
+
+        {lastGeneratedLink ? (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-950">
+              Latest login link{lastGeneratedLink.driverName ? `: ${lastGeneratedLink.driverName}` : ""}
+            </p>
+            <p className="mt-2 break-all text-xs">{lastGeneratedLink.linkUrl || "-"}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Expires: {formatDate(lastGeneratedLink.expiresAt)}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => copyText(String(lastGeneratedLink.linkUrl || ""))}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold"
+              >
+                Copy link
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            Generate a login link from the active drivers table to send a driver into the driver session flow.
+          </div>
+        )}
       </section>
     </main>
   );

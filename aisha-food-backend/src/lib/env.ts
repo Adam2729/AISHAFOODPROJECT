@@ -175,9 +175,9 @@ const devLocationBypassUnsafeInProduction =
 if (env.DEV_ALLOW_ORDER_LOCATION_BYPASS) {
   logEnvMessageOnce(
     "DEV_ALLOW_ORDER_LOCATION_BYPASS",
-    runtimeStage === "production" ? "error" : "warn",
+    "warn",
     runtimeStage === "production"
-      ? "[CONFIG ERROR] DEV_ALLOW_ORDER_LOCATION_BYPASS is ENABLED. Unsafe for production. Disable it before accepting live Bamako orders."
+      ? "[CONFIG WARNING] DEV_ALLOW_ORDER_LOCATION_BYPASS is ENABLED. Unsafe for production. Orders will continue, but this should be disabled for live Bamako orders."
       : runtimeStage === "preview"
         ? "[CONFIG WARNING] DEV_ALLOW_ORDER_LOCATION_BYPASS is ENABLED. Preview testing can continue, but this is unsafe for production."
         : "[CONFIG WARNING] DEV_ALLOW_ORDER_LOCATION_BYPASS is ENABLED. Allowed for local UK testing only. Disable it before preview or production."

@@ -3,6 +3,8 @@ import { dbConnect } from "@/lib/mongodb";
 import { ok, fail } from "@/lib/apiResponse";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { requireAdminKey } from "@/lib/adminAuth";
+import { hashDriverPassword, normalizeDriverEmail } from "@/lib/driverCredentials";
+import { createDriverSessionLink, generateTemporaryDriverPassword } from "@/lib/driverAdmin";
 import {
   DRIVER_REFERRAL_SIGNUP_BONUS,
   buildPartnerReferralAuditEntry,
@@ -13,8 +15,26 @@ import {
 import { DriverApplication } from "@/models/DriverApplication";
 import { Driver } from "@/models/Driver";
 import { phoneToHash, normalizePhone } from "@/lib/phoneHash";
+import { maskPhone } from "@/lib/pii";
 
 type ApiError = Error & { status?: number; code?: string };
+
+type DriverDoc = {
+  _id: mongoose.Types.ObjectId;
+  name?: string | null;
+  email?: string | null;
+  phoneE164?: string | null;
+  phoneHash?: string | null;
+  cityId?: mongoose.Types.ObjectId | null;
+  zoneLabel?: string | null;
+  vehicleType?: string | null;
+  isActive?: boolean;
+  isBanned?: boolean;
+  availability?: string | null;
+  auth?: {
+    passwordHash?: string | null;
+  } | null;
+};
 
 async function ensureDriverReferralCode(driverId: mongoose.Types.ObjectId | string) {
   const driver = await Driver.findById(driverId)
@@ -150,6 +170,127 @@ async function applyDriverReferralBonus(input: {
   };
 }
 
+async function findExistingDriverForApplication(input: {
+  approvedDriverId?: mongoose.Types.ObjectId | string | null;
+  driverId?: mongoose.Types.ObjectId | string | null;
+  phoneHash: string;
+  email: string;
+}) {
+  const or: Record<string, unknown>[] = [];
+  const linkedId = String(input.approvedDriverId || input.driverId || "").trim();
+  if (mongoose.Types.ObjectId.isValid(linkedId)) {
+    or.push({ _id: new mongoose.Types.ObjectId(linkedId) });
+  }
+  if (input.phoneHash) {
+    or.push({ phoneHash: input.phoneHash });
+  }
+  if (input.email) {
+    or.push({ email: input.email });
+  }
+  if (!or.length) return null;
+
+  return Driver.findOne({ $or: or })
+    .select(
+      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType isActive isBanned availability auth.passwordHash"
+    )
+    .lean<DriverDoc | null>();
+}
+
+async function ensureApprovedDriverAccount(input: {
+  application: Record<string, unknown> & {
+    _id: mongoose.Types.ObjectId;
+    cityId: mongoose.Types.ObjectId;
+  };
+}) {
+  const fullName = String(input.application.fullName || input.application.name || "").trim();
+  const phoneE164 =
+    normalizePhone(String(input.application.phone || "").trim()) ||
+    String(input.application.phone || "").trim();
+  const email = normalizeDriverEmail(input.application.email);
+  const phoneHash = phoneToHash(phoneE164);
+  const zoneLabel = String(input.application.zoneLabel || "").trim() || null;
+  const vehicleType = String(input.application.vehicleType || "").trim() || null;
+
+  const existing = await findExistingDriverForApplication({
+    approvedDriverId: input.application.approvedDriverId as
+      | mongoose.Types.ObjectId
+      | string
+      | null
+      | undefined,
+    driverId: input.application.driverId as mongoose.Types.ObjectId | string | null | undefined,
+    phoneHash,
+    email,
+  });
+
+  const temporaryPassword =
+    existing?.auth?.passwordHash
+      ? null
+      : generateTemporaryDriverPassword();
+  const passwordHash = temporaryPassword ? hashDriverPassword(temporaryPassword) : null;
+
+  let driverId = existing?._id || null;
+  if (!driverId) {
+    const created = await Driver.create({
+      name: fullName,
+      email: email || null,
+      phoneE164: phoneE164 || null,
+      phoneHash: phoneHash || "",
+      cityId: input.application.cityId,
+      isActive: true,
+      isBanned: false,
+      availability: "offline",
+      zoneLabel,
+      vehicleType,
+      referredByCode: normalizePartnerReferralCode(input.application.referredByCode),
+      signupBonusAmount: 0,
+      auth: temporaryPassword
+        ? {
+            passwordHash,
+            passwordSetAt: new Date(),
+          }
+        : undefined,
+    });
+    driverId = created._id;
+  } else {
+    const update: Record<string, unknown> = {
+      name: fullName,
+      email: email || null,
+      phoneE164: phoneE164 || null,
+      phoneHash: phoneHash || "",
+      cityId: input.application.cityId,
+      isActive: true,
+      isBanned: false,
+      bannedAt: null,
+      bannedReason: null,
+      pausedAt: null,
+      pausedReason: null,
+      zoneLabel,
+      vehicleType,
+    };
+    if (temporaryPassword) {
+      update["auth.passwordHash"] = passwordHash;
+      update["auth.passwordSetAt"] = new Date();
+    }
+    await Driver.updateOne({ _id: driverId }, { $set: update });
+  }
+
+  const driver = await Driver.findById(driverId)
+    .select(
+      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType isActive isBanned availability auth.passwordHash"
+    )
+    .lean<DriverDoc | null>();
+  if (!driver) {
+    throw new Error("Driver account could not be created.");
+  }
+
+  const referralCode = await ensureDriverReferralCode(driver._id);
+  return {
+    driver,
+    referralCode,
+    temporaryPassword,
+  };
+}
+
 export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -170,79 +311,84 @@ export async function POST(
     if (application.status === "rejected") {
       return fail("INVALID_STATE", "Application already rejected.", 409);
     }
-    if (application.status === "approved" && application.driverId) {
-      const referralCode = await ensureDriverReferralCode(application.driverId);
-      const referralBonus = await applyDriverReferralBonus({
-        applicationId: application._id,
-        cityId: application.cityId,
-        driverId: application.driverId,
-        referredByCode: (application as { referredByCode?: string }).referredByCode,
-        alreadyAppliedAt: (application as { referralBonusAppliedAt?: Date | null }).referralBonusAppliedAt,
-      });
-      return ok({
-        applicationId: String(application._id),
-        driverId: String(application.driverId),
-        status: "approved",
-        referralCode,
-        referralBonus,
-        idempotent: true,
-      });
-    }
 
-    const updated = await DriverApplication.findOneAndUpdate(
-      { _id: application._id, status: "pending" },
-      {
-        $set: {
-          status: "approved",
-          reviewedAt: new Date(),
-          reviewedByAdminId: null,
-        },
+    const approval = await ensureApprovedDriverAccount({
+      application: application as Record<string, unknown> & {
+        _id: mongoose.Types.ObjectId;
+        cityId: mongoose.Types.ObjectId;
       },
-      { new: true }
-    ).lean();
-    if (!updated) {
-      return fail("INVALID_STATE", "Application not pending.", 409);
-    }
-
-    const phoneE164 = normalizePhone(String(application.phone || "").trim()) || String(application.phone || "").trim();
-    const phoneHash = phoneToHash(phoneE164);
-    const referralCode = await generateUniqueDriverReferralCode();
-
-    const driver = await Driver.create({
-      name: String(application.name || "").trim(),
-      phoneE164,
-      phoneHash: phoneHash || "",
-      cityId: application.cityId,
-      isActive: true,
-      zoneLabel: String(application.zoneLabel || "").trim() || null,
-      vehicleType: String((application as { vehicleType?: string }).vehicleType || "").trim() || null,
-      referralCode,
-      referredByCode: normalizePartnerReferralCode(
-        (application as { referredByCode?: string }).referredByCode
-      ),
-      signupBonusAmount: 0,
     });
 
-    await DriverApplication.updateOne(
-      { _id: application._id },
-      { $set: { driverId: driver._id } }
-    );
+    const idempotent = application.status === "approved";
+    if (!idempotent) {
+      const updated = await DriverApplication.findOneAndUpdate(
+        { _id: application._id, status: "pending" },
+        {
+          $set: {
+            status: "approved",
+            reviewedAt: new Date(),
+            reviewedBy: "admin_key",
+            reviewedByAdminId: null,
+            rejectReason: null,
+            rejectionReason: null,
+            driverId: approval.driver._id,
+            approvedDriverId: approval.driver._id,
+          },
+        },
+        { new: true }
+      ).lean();
+      if (!updated) {
+        return fail("INVALID_STATE", "Application not pending.", 409);
+      }
+    } else {
+      await DriverApplication.updateOne(
+        { _id: application._id },
+        {
+          $set: {
+            reviewedAt: application.reviewedAt || new Date(),
+            reviewedBy: String((application as { reviewedBy?: string }).reviewedBy || "admin_key"),
+            driverId: approval.driver._id,
+            approvedDriverId: approval.driver._id,
+          },
+        }
+      );
+    }
 
     const referralBonus = await applyDriverReferralBonus({
       applicationId: application._id,
       cityId: application.cityId,
-      driverId: driver._id,
+      driverId: approval.driver._id,
       referredByCode: (application as { referredByCode?: string }).referredByCode,
       alreadyAppliedAt: (application as { referralBonusAppliedAt?: Date | null }).referralBonusAppliedAt,
     });
 
+    const sessionLink = await createDriverSessionLink({
+      driverId: approval.driver._id,
+      cityId: approval.driver.cityId || application.cityId,
+      origin: new URL(req.url).origin,
+      createdByAdminId: "admin_key",
+    });
+
     return ok({
       applicationId: String(application._id),
-      driverId: String(driver._id),
+      driverId: String(approval.driver._id),
       cityId: String(application.cityId),
       status: "approved",
-      referralCode,
+      idempotent,
+      referralCode: approval.referralCode,
       referralBonus,
+      driver: {
+        id: String(approval.driver._id),
+        name: String(approval.driver.name || ""),
+        email: String(approval.driver.email || ""),
+        phoneMasked: maskPhone(String(approval.driver.phoneE164 || "").trim()),
+        cityId: approval.driver.cityId ? String(approval.driver.cityId) : String(application.cityId),
+        vehicleType: String(approval.driver.vehicleType || ""),
+      },
+      temporaryPassword: approval.temporaryPassword,
+      loginLink: sessionLink.linkUrl,
+      loginLinkExpiresAt: sessionLink.expiresAt,
+      loginLinkWhatsappText: sessionLink.whatsappText,
     });
   } catch (error: unknown) {
     const err = error as ApiError;

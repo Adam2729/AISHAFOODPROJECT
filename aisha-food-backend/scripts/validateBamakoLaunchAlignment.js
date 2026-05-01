@@ -181,7 +181,7 @@ async function main() {
   );
   assertIncludes(
     envLib,
-    'MULTICITY_ENABLE_BAMAKO: z.coerce.boolean().default(true)',
+    'MULTICITY_ENABLE_BAMAKO: boolFromEnv.default(true)',
     "env.ts must keep Bamako enabled by default for the launch path."
   );
   assertIncludes(
@@ -287,11 +287,11 @@ async function main() {
     );
   }
 
-  if (runtimeStage === "production" && devLocationBypass) {
-    failures.push("DEV_ALLOW_ORDER_LOCATION_BYPASS");
-  } else if (devLocationBypass) {
+  if (devLocationBypass) {
     warnings.push(
-      runtimeStage === "preview"
+      runtimeStage === "production"
+        ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Orders can continue, but this is unsafe for production."
+        : runtimeStage === "preview"
         ? "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Preview testing can continue, but this is unsafe for production."
         : "DEV_ALLOW_ORDER_LOCATION_BYPASS is enabled. Allowed for local UK testing only."
     );

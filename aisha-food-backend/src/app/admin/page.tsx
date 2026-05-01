@@ -282,6 +282,12 @@ export default function AdminDashboardPage() {
         >
           Review Merchant Applications
         </Link>
+        <Link
+          href="/admin/driver-applications"
+          className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 font-semibold text-orange-800"
+        >
+          Review Driver Applications
+        </Link>
         <Link href="/admin/ops" className="rounded-lg border px-4 py-2">
           Ops Center
         </Link>
@@ -337,7 +343,7 @@ export default function AdminDashboardPage() {
         >
           <p className="text-sm font-semibold text-slate-950">Driver operations</p>
           <p className="mt-1 text-sm text-slate-600">
-            Open driver links, payouts, and dispatch support tools from one place.
+            Review driver applications, activate approved accounts, and manage dispatch login tools.
           </p>
         </Link>
       </section>
