@@ -210,6 +210,7 @@ async function ensureApprovedDriverAccount(input: {
   const phoneHash = phoneToHash(phoneE164);
   const zoneLabel = String(input.application.zoneLabel || "").trim() || null;
   const vehicleType = String(input.application.vehicleType || "").trim() || null;
+  const applicationPasswordHash = String(input.application.passwordHash || "").trim();
 
   const existing = await findExistingDriverForApplication({
     approvedDriverId: input.application.approvedDriverId as
@@ -222,11 +223,17 @@ async function ensureApprovedDriverAccount(input: {
     email,
   });
 
-  const temporaryPassword =
-    existing?.auth?.passwordHash
-      ? null
-      : generateTemporaryDriverPassword();
-  const passwordHash = temporaryPassword ? hashDriverPassword(temporaryPassword) : null;
+  const shouldUseApplicationPasswordHash = Boolean(applicationPasswordHash);
+  const shouldGenerateTemporaryPassword =
+    !shouldUseApplicationPasswordHash && !existing?.auth?.passwordHash;
+  const temporaryPassword = shouldGenerateTemporaryPassword
+    ? generateTemporaryDriverPassword()
+    : null;
+  const passwordHash = shouldUseApplicationPasswordHash
+    ? applicationPasswordHash
+    : temporaryPassword
+      ? hashDriverPassword(temporaryPassword)
+      : String(existing?.auth?.passwordHash || "").trim() || null;
 
   let driverId = existing?._id || null;
   if (!driverId) {
@@ -243,10 +250,10 @@ async function ensureApprovedDriverAccount(input: {
       vehicleType,
       referredByCode: normalizePartnerReferralCode(input.application.referredByCode),
       signupBonusAmount: 0,
-      auth: temporaryPassword
+      auth: passwordHash
         ? {
-            passwordHash,
-            passwordSetAt: new Date(),
+          passwordHash,
+          passwordSetAt: new Date(),
           }
         : undefined,
     });
@@ -267,7 +274,7 @@ async function ensureApprovedDriverAccount(input: {
       zoneLabel,
       vehicleType,
     };
-    if (temporaryPassword) {
+    if (passwordHash) {
       update["auth.passwordHash"] = passwordHash;
       update["auth.passwordSetAt"] = new Date();
     }

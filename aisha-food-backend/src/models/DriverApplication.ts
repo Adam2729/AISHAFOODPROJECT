@@ -14,6 +14,7 @@ const DriverApplicationSchema = new mongoose.Schema(
     phone: { type: String, required: true, trim: true, maxlength: 30 },
     phoneHash: { type: String, required: true, index: true },
     email: { type: String, required: true, trim: true, lowercase: true, maxlength: 160 },
+    passwordHash: { type: String, default: "", trim: true, maxlength: 280 },
     city: { type: String, default: null, trim: true, maxlength: 120 },
     zoneLabel: { type: String, default: null, trim: true, maxlength: 80 },
     vehicleType: { type: String, default: null, trim: true, maxlength: 40 },
@@ -58,6 +59,7 @@ if (existingDriverApplicationModel) {
   const needsReferralMerge =
     !existingSchema.path?.("fullName") ||
     !existingSchema.path?.("email") ||
+    !existingSchema.path?.("passwordHash") ||
     !existingSchema.path?.("city") ||
     !existingSchema.path?.("vehicleType") ||
     !existingSchema.path?.("availability") ||

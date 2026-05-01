@@ -12,6 +12,7 @@ import {
   verifyDriverPassword,
 } from "@/lib/driverCredentials";
 import { normalizePhone, phoneToHash } from "@/lib/phoneHash";
+import { DriverApplication } from "@/models/DriverApplication";
 import { Driver } from "@/models/Driver";
 
 type ApiError = Error & { status?: number; code?: string };
@@ -35,6 +36,12 @@ type DriverLoginDoc = {
   auth?: {
     passwordHash?: string | null;
   } | null;
+};
+
+type PendingDriverApplicationDoc = {
+  _id: mongoose.Types.ObjectId;
+  status?: string | null;
+  passwordHash?: string | null;
 };
 
 function driverResponse(driver: DriverLoginDoc) {
@@ -81,6 +88,33 @@ async function findDriverForLogin(input: { phone: string; email: string }) {
   return Driver.findOne({ $or: or })
     .select("_id name email phoneE164 cityId vehicleType isActive isBanned auth.passwordHash")
     .lean<DriverLoginDoc | null>();
+}
+
+async function findPendingDriverApplicationForLogin(input: {
+  phone: string;
+  email: string;
+  password: string;
+}) {
+  const or: Record<string, unknown>[] = [];
+  if (input.phone) or.push({ phoneHash: phoneToHash(input.phone) });
+  if (input.email) or.push({ email: input.email });
+  if (!or.length) return null;
+
+  const application = await DriverApplication.findOne({
+    $or: or,
+    status: "pending",
+  })
+    .sort({ createdAt: -1 })
+    .select("_id status passwordHash")
+    .lean<PendingDriverApplicationDoc | null>();
+  if (!application) return null;
+
+  const applicationPasswordHash = String(application.passwordHash || "").trim();
+  if (!applicationPasswordHash) return application;
+  if (verifyDriverPassword(input.password, applicationPasswordHash)) {
+    return application;
+  }
+  return null;
 }
 
 async function ensureDevDemoDriver(input: { phone: string; email: string; password: string }) {
@@ -140,6 +174,13 @@ export async function POST(req: NextRequest) {
 
     let driver = await findDriverForLogin(input);
     if (!driver) {
+      const pendingApplication = await findPendingDriverApplicationForLogin(input);
+      if (pendingApplication) {
+        return NextResponse.json(
+          { error: "Your driver account is pending approval." },
+          { status: 403 }
+        );
+      }
       driver = await ensureDevDemoDriver(input);
     } else if (!driver.auth?.passwordHash && canUseDevDemoLogin(input)) {
       await Driver.updateOne(

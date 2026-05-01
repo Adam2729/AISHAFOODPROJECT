@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongodb";
 import { ok, fail, readJson } from "@/lib/apiResponse";
 import { sendEmail, formatE164ForDisplay } from "@/lib/email";
+import { hashDriverPassword } from "@/lib/driverCredentials";
 import { getMarketConfig } from "@/lib/marketConfig";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { requireActiveCity, resolveCityFromRequest } from "@/lib/city";
@@ -15,6 +16,7 @@ type Body = {
   name?: string;
   phone?: string;
   email?: string;
+  password?: string;
   availability?: string;
   documentsStatus?: string;
   idDocumentUrl?: string;
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
     const name = normalize(body.fullName || body.name, 80, true);
     const phone = normalize(body.phone, 30, true);
     const email = normalize(body.email, 160, true).toLowerCase();
+    const password = String(body.password || "").trim();
     const availability = normalize(body.availability, 80, true);
     const documentsStatus = normalize(body.documentsStatus, 40, false) || null;
     const idDocumentUrl = normalize(body.idDocumentUrl, 500, false) || null;
@@ -89,19 +92,23 @@ export async function POST(req: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return fail("VALIDATION_ERROR", "email must be valid.", 400);
     }
+    if (password && password.length < 6) {
+      return fail("VALIDATION_ERROR", "password must be at least 6 characters.", 400);
+    }
 
     const phoneHash = phoneToHash(phone);
     if (!phoneHash) return fail("VALIDATION_ERROR", "Invalid phone.", 400);
+    const passwordHash = password ? hashDriverPassword(password) : "";
 
     const existingPending = await DriverApplication.findOne({
       cityId: new mongoose.Types.ObjectId(String(city._id)),
-      phoneHash,
+      $or: [{ phoneHash }, { email }],
       status: "pending",
     })
       .select("_id")
       .lean();
     if (existingPending) {
-      return fail("CONFLICT", "An application is already pending for this phone.", 409);
+      return fail("CONFLICT", "An application is already pending for this phone or email.", 409);
     }
 
     const created = await DriverApplication.create({
@@ -112,6 +119,7 @@ export async function POST(req: Request) {
       phone,
       phoneHash,
       email,
+      passwordHash,
       city: String(city.name || "").trim() || null,
       zoneLabel,
       vehicleType,
