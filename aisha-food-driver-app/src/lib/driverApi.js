@@ -6,6 +6,7 @@ const REQUEST_TIMEOUT_MS = 15000;
 
 const DRIVER_API_PATHS = {
   login: "/api/driver/auth/login",
+  signup: "/api/public/driver-applications",
   orders: "/api/driver/orders",
   activeOrder: "/api/driver/orders/active",
   currentOffer: "/api/driver/orders/current-offer",
@@ -649,6 +650,31 @@ export async function loginDriver({ identifier, phone, email, password }) {
     };
   } catch (error) {
     throw normalizeRequestError(error, "Unable to sign in.");
+  }
+}
+
+export async function signupDriverApplication({
+  fullName,
+  phone,
+  email,
+  password,
+  zoneLabel,
+  vehicleType,
+  availability,
+}) {
+  try {
+    const response = await publicApi.post(DRIVER_API_PATHS.signup, {
+      fullName: String(fullName || "").trim(),
+      phone: String(phone || "").trim(),
+      email: String(email || "").trim(),
+      password: String(password || ""),
+      zoneLabel: String(zoneLabel || "").trim(),
+      vehicleType: String(vehicleType || "").trim(),
+      availability: String(availability || "").trim(),
+    });
+    return readPayload(response);
+  } catch (error) {
+    throw normalizeRequestError(error, "Unable to submit driver application.");
   }
 }
 

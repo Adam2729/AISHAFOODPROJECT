@@ -5,6 +5,8 @@ function routeForName(name, params = {}) {
   switch (String(name || "")) {
     case "Login":
       return "/login";
+    case "Signup":
+      return "/signup";
     case "Home":
       return "/home";
     case "Orders":

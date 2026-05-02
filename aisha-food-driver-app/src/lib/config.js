@@ -1,9 +1,9 @@
-export const API_BASE_URL = String(process.env.EXPO_PUBLIC_API_BASE_URL || "")
+export const API_BASE_URL = String(process.env.EXPO_PUBLIC_API_URL || "")
   .trim()
   .replace(/\/+$/, "");
 
 export const API_CONFIG_ERROR =
-  "Set EXPO_PUBLIC_API_BASE_URL to the AishaFood backend base URL before making driver API requests.";
+  "Set EXPO_PUBLIC_API_URL to the AishaFood backend base URL before making driver API requests.";
 
 export function getRequiredApiBaseUrl() {
   if (!API_BASE_URL) {

@@ -61,7 +61,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.eyebrow}>AISHA FOOD DRIVER</Text>
             <Text style={styles.title}>Driver login</Text>
             <Text style={styles.subtitle}>
-              Sign in with your driver account to manage assigned deliveries.
+              Sign in with your approved driver account.
             </Text>
           </View>
 
@@ -101,6 +101,13 @@ export default function LoginScreen({ navigation }) {
                 <Text style={styles.primaryButtonText}>Sign in</Text>
               )}
             </Pressable>
+
+            <Pressable
+              style={styles.signupLinkButton}
+              onPress={() => router.push("/signup")}
+            >
+              <Text style={styles.signupLinkText}>Don&apos;t have an account? Sign up</Text>
+            </Pressable>
           </View>
 
           <View style={styles.noteCard}>
@@ -108,7 +115,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.noteText}>
               {API_BASE_URL
                 ? `Connected base URL: ${API_BASE_URL}`
-                : "Missing EXPO_PUBLIC_API_BASE_URL. Add it to your Expo env before using the live backend."}
+                : "Missing EXPO_PUBLIC_API_URL. Add it to your Expo env before using the live backend."}
             </Text>
           </View>
         </View>
@@ -193,6 +200,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "900",
     fontSize: 15,
+  },
+  signupLinkButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+  },
+  signupLinkText: {
+    color: "#F97316",
+    fontWeight: "800",
+    fontSize: 14,
   },
   noteCard: {
     backgroundColor: "#FFF7ED",
