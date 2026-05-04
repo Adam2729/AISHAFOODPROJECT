@@ -350,7 +350,7 @@ export default function CartScreen({ navigation, route }) {
     ).trim();
 
     await openRestaurantOrderWhatsApp({
-      restaurantName: String(cart.businessName || "").trim() || "AishaFood restaurant",
+      restaurantName: String(cart.businessName || "").trim() || "OranjeEats restaurant",
       whatsapp: businessContact.whatsapp,
       phone: businessContact.phone,
       items: cart.items || [],

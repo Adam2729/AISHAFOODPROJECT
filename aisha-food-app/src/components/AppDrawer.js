@@ -65,7 +65,7 @@ export default function AppDrawer() {
     ? {
         account: "Mi cuenta",
         subtitle: "Navegacion, idioma y soporte en un solo menu.",
-        guest: "Cliente AishaFood",
+        guest: "Cliente OranjeEats",
         home: "Inicio",
         homeHint: "Explorar restaurantes y ofertas",
         search: "Buscar",
@@ -88,7 +88,7 @@ export default function AppDrawer() {
     : {
         account: "Mon compte",
         subtitle: "Navigation, langue et support dans un seul menu.",
-        guest: "Client AishaFood",
+        guest: "Client OranjeEats",
         home: "Accueil",
         homeHint: "Explorer restaurants et offres",
         search: "Recherche",

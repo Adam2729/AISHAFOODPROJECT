@@ -438,7 +438,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.heroHeader}>
             <View style={styles.brand}>
               <Image source={BRAND_LOGO} style={styles.logo} resizeMode="contain" />
-              <Text style={styles.brandText}>AishaFood</Text>
+              <Text style={styles.brandText}>OranjeEats</Text>
             </View>
             <Pressable style={styles.heroIcon} onPress={toggleDrawer}>
               <Ionicons name="menu-outline" size={22} color="#FFFFFF" />

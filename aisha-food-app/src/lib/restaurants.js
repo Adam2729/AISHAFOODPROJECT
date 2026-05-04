@@ -189,7 +189,7 @@ export async function openRestaurantOrderWhatsApp({
   const market = getMarketConfig(city);
   const digits = restaurantDigits || normalizeDigits(supportWhatsApp || market.supportWhatsApp);
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
-  const safeRestaurantName = String(restaurantName || "AishaFood restaurant").trim() || "AishaFood restaurant";
+  const safeRestaurantName = String(restaurantName || "OranjeEats restaurant").trim() || "OranjeEats restaurant";
   const safeAddress = String(address || "").trim();
   const safeLandmark = String(landmark || "").trim();
   const safeNote = String(note || "").trim();
@@ -223,7 +223,7 @@ export async function openRestaurantOrderWhatsApp({
   const messageLines = [
     "Hello 👋",
     "",
-    "I want to order from AishaFood:",
+    "I want to order from OranjeEats:",
     "",
     `Restaurant: ${safeRestaurantName}`,
     "",

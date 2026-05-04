@@ -208,7 +208,7 @@ export default function OrderRequestModal({
                 <View style={styles.orderHeaderText}>
                   <Text style={styles.restaurantName}>{restaurantName}</Text>
                   <Text style={styles.customerAreaText}>
-                    {firstText([offer?.customerArea], "AishaFood delivery")}
+                    {firstText([offer?.customerArea], "OranjeEats delivery")}
                   </Text>
                 </View>
                 <View style={styles.earningChip}>

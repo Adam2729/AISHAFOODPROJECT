@@ -38,7 +38,12 @@ export default function OrdersScreen() {
                 <OrderCard
                   key={order.id}
                   order={order}
-                  onPress={() => router.push(`/order/${order.id}`)}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/order/[id]",
+                      params: { id: order.id },
+                    })
+                  }
                 />
               ))
             ) : (

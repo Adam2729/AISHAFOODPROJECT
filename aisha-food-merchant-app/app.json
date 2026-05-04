@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "aisha-food-merchant-app",
-    "slug": "aisha-food-merchant-app",
+    "name": "OranjeEats Merchant",
+    "slug": "oranjeeats-merchant",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "aishafoodmerchantapp",
+    "scheme": "oranjeeatsmerchant",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

@@ -55,7 +55,16 @@ export default function HomeDashboardScreen() {
       {featuredOrder ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>New Order</Text>
-          <OrderCard order={featuredOrder} featured onPress={() => router.push(`/order/${featuredOrder.id}`)}>
+          <OrderCard
+            order={featuredOrder}
+            featured
+            onPress={() =>
+              router.push({
+                pathname: "/order/[id]",
+                params: { id: featuredOrder.id },
+              })
+            }
+          >
             <View style={styles.featuredActions}>
               <OrangeButton
                 label="Accept Order"

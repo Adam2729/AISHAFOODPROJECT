@@ -90,7 +90,7 @@ export default function AccountHubScreen({ navigation }) {
     ? {
         title: "Mi cuenta",
         subtitle: "Ajustes, direccion, idioma, fidelidad y soporte en un solo lugar.",
-        guest: "Cliente AishaFood",
+        guest: "Cliente OranjeEats",
         noPhone: "Agrega tu numero en checkout para guardar preferencias.",
         city: "Ciudad activa",
         settings: "Ajustes del perfil",
@@ -116,7 +116,7 @@ export default function AccountHubScreen({ navigation }) {
     : {
         title: "Mon compte",
         subtitle: "Parametres, adresse, langue, fidelite et support au meme endroit.",
-        guest: "Client AishaFood",
+        guest: "Client OranjeEats",
         noPhone: "Ajoute ton numero au checkout pour enregistrer tes preferences.",
         city: "Ville active",
         settings: "Parametres du profil",

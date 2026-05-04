@@ -116,7 +116,7 @@ export default function DriverHomeScreen({
       <View style={styles.heroCard}>
         <View style={[styles.heroTopRow, isCompact ? styles.heroTopRowCompact : null]}>
           <View>
-            <Text style={styles.heroEyebrow}>AishaFood Driver</Text>
+            <Text style={styles.heroEyebrow}>OranjeEats Driver</Text>
             <Text style={[styles.heroTitle, isCompact ? styles.heroTitleCompact : null]}>
               Bonjour, {driverName}
             </Text>

@@ -30,8 +30,8 @@ export function getCustomerUiCopy(cityOrMarket) {
       ? "Pagaras al momento de la entrega."
       : "Vous paierez à la livraison.",
     courierComingSoon: isSpanish
-      ? "Courier local disponible con soporte AishaFood."
-      : "Course locale disponible avec le support AishaFood.",
+      ? "Courier local disponible con soporte OranjeEats."
+      : "Course locale disponible avec le support OranjeEats.",
     courierHelp: isSpanish
       ? "Comparte la direccion y los detalles por WhatsApp mientras mantenemos el flujo de pedido intacto."
       : "Partage l'adresse et les details par WhatsApp pendant que nous gardons le flux de commande intact.",
