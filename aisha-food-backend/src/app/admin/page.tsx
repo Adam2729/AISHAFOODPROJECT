@@ -787,7 +787,7 @@ export default function AdminDashboardPage() {
                       </div>
                       {metrics.weekKey ? (
                         <a
-                          href={`/api/admin/audit?businessId=${encodeURIComponent(business.businessId)}&weekKey=${encodeURIComponent(metrics.weekKey)}&limit=100`}
+                          href={`/admin/audit?businessId=${encodeURIComponent(business.businessId)}&weekKey=${encodeURIComponent(metrics.weekKey)}&limit=100`}
                           className="inline-flex items-center justify-center rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-white"
                         >
                           Audit week

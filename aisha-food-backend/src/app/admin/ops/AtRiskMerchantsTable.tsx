@@ -19,11 +19,10 @@ type AtRiskBusiness = {
 };
 
 type Props = {
-  adminKey: string;
   businesses: AtRiskBusiness[];
 };
 
-export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
+export default function AtRiskMerchantsTable({ businesses }: Props) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
   const [loadingWeeklyReset, setLoadingWeeklyReset] = useState(false);
@@ -189,7 +188,7 @@ export default function AtRiskMerchantsTable({ adminKey, businesses }: Props) {
                         Reset health
                       </button>
                       <a
-                        href={`/api/admin/businesses/audit?businessId=${encodeURIComponent(
+                        href={`/admin/audit?businessId=${encodeURIComponent(
                           b.id
                         )}&limit=50`}
                         className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"

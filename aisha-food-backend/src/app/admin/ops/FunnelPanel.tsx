@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
-  adminKey: string;
   totals: {
     business_view: number;
     add_to_cart: number;
@@ -52,7 +51,6 @@ type Props = {
 };
 
 export default function FunnelPanel({
-  adminKey,
   totals,
   rates,
   bySource,
@@ -224,7 +222,7 @@ export default function FunnelPanel({
                     <td className="py-2">
                       <div className="flex flex-wrap gap-2">
                         <a
-                          href={`/admin/audit`}
+                          href={`/admin/audit?businessId=${encodeURIComponent(row.businessId)}&limit=50`}
                           className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
                         >
                           Audit

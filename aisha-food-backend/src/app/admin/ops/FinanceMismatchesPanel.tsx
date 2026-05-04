@@ -346,7 +346,7 @@ export default function FinanceMismatchesPanel({
                       </a>
                       <a
                         className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
-                        href={`/api/admin/audit?businessId=${encodeURIComponent(
+                        href={`/admin/audit?businessId=${encodeURIComponent(
                           row.businessId
                         )}&weekKey=${encodeURIComponent(weekKey)}&limit=50`}
                         target="_blank"

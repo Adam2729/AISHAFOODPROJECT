@@ -626,7 +626,7 @@ export default function AdminBusinessesPage() {
                           onSaved={load}
                         />
                         <a
-                          href={`/api/admin/businesses/audit?businessId=${encodeURIComponent(b.id)}&limit=50`}
+                          href={`/admin/audit?businessId=${encodeURIComponent(b.id)}&limit=50`}
                           className="rounded border border-slate-300 px-2 py-1 text-center text-xs font-semibold"
                         >
                           Audit

@@ -95,6 +95,10 @@ export default async function AdminAuditPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const businessId = pickAdminSearchParam(params.businessId).trim();
+  const weekKey = pickAdminSearchParam(params.weekKey).trim();
+  const limitRaw = Number(pickAdminSearchParam(params.limit) || 50);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
   const { baseUrl, adminRequestHeaders, hasAdminSession, transitionalAdminKey } =
     await getAdminPageContext(params);
 
@@ -115,13 +119,24 @@ export default async function AdminAuditPage({
     );
   }
 
+  const settlementQuery = new URLSearchParams({ limit: String(limit) });
+  if (businessId && weekKey) {
+    settlementQuery.set("businessId", businessId);
+    settlementQuery.set("weekKey", weekKey);
+  }
+
+  const businessQuery = new URLSearchParams({ limit: String(limit) });
+  if (businessId) {
+    businessQuery.set("businessId", businessId);
+  }
+
   const [settlementReq, businessReq] = await Promise.all([
     fetchJson<SettlementAuditResponse>(
-      `${baseUrl}/api/admin/audit?limit=50`,
+      `${baseUrl}/api/admin/audit?${settlementQuery.toString()}`,
       adminRequestHeaders
     ),
     fetchJson<BusinessAuditResponse>(
-      `${baseUrl}/api/admin/businesses/audit?limit=50`,
+      `${baseUrl}/api/admin/businesses/audit?${businessQuery.toString()}`,
       adminRequestHeaders
     ),
   ]);
@@ -134,7 +149,11 @@ export default async function AdminAuditPage({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Audit Center</h1>
-          <p className="text-sm text-slate-600">Latest settlement and business events</p>
+          <p className="text-sm text-slate-600">
+            {businessId
+              ? `Filtered audit view for business ${shortId(businessId)}`
+              : "Latest settlement and business events"}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -152,9 +171,31 @@ export default async function AdminAuditPage({
         </div>
       </header>
 
+      <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+            limit: {limit}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+            business: {businessId ? shortId(businessId) : "all"}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+            week: {weekKey || "all"}
+          </span>
+        </div>
+        {businessId && !weekKey ? (
+          <p className="mt-3 text-sm text-amber-700">
+            Settlement audit filtering needs both businessId and weekKey. Business audit is filtered,
+            settlement audit stays unfiltered until a week is provided.
+          </p>
+        ) : null}
+      </section>
+
       <section className="mt-5 grid gap-4 lg:grid-cols-2">
         <article className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-lg font-semibold">Settlement Audit (latest 50)</h2>
+          <h2 className="mb-3 text-lg font-semibold">
+            Settlement Audit {businessId && weekKey ? "(filtered)" : `(latest ${limit})`}
+          </h2>
           {settlementReq.ok ? null : <p className="mb-3 text-sm text-red-600">{settlementReq.error}</p>}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -191,7 +232,9 @@ export default async function AdminAuditPage({
         </article>
 
         <article className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-lg font-semibold">Business Audit (latest 50)</h2>
+          <h2 className="mb-3 text-lg font-semibold">
+            Business Audit {businessId ? "(filtered)" : `(latest ${limit})`}
+          </h2>
           {businessReq.ok ? null : <p className="mb-3 text-sm text-red-600">{businessReq.error}</p>}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

@@ -1091,10 +1091,10 @@ export default async function AdminOpsPage({
               Export This Week CSV
             </a>
             <a
-              href="/api/admin/audit?limit=50"
+              href="/admin/audit?limit=50"
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold"
             >
-              Settlement audit API
+              Audit Center
             </a>
           </div>
         </article>
@@ -1440,7 +1440,6 @@ export default async function AdminOpsPage({
         opportunities={searchTelemetryOpportunities}
       />
       <FunnelPanel
-        adminKey={key}
         totals={{
           business_view: Number(funnelTotals.business_view || 0),
           add_to_cart: Number(funnelTotals.add_to_cart || 0),
@@ -1567,7 +1566,7 @@ export default async function AdminOpsPage({
                     <td className="py-2">{Number(row.overridesCount || 0)}</td>
                     <td className="py-2">
                       <a
-                        href={`/api/admin/businesses/audit?businessId=${encodeURIComponent(
+                        href={`/admin/audit?businessId=${encodeURIComponent(
                           String(row.businessId || "")
                         )}&limit=50`}
                         target="_blank"
@@ -2010,7 +2009,7 @@ export default async function AdminOpsPage({
       />
 
       {atRiskReq.ok ? null : <p className="mt-4 text-sm text-red-600">{atRiskReq.error}</p>}
-      <AtRiskMerchantsTable adminKey={key} businesses={atRiskBusinesses} />
+      <AtRiskMerchantsTable businesses={atRiskBusinesses} />
     </main>
   );
 }
