@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import type { NextConfig } from "next";
 
 const launchCityCode =
@@ -8,6 +9,9 @@ const launchCityCode =
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_LAUNCH_CITY_CODE: launchCityCode,
+  },
+  turbopack: {
+    root: path.resolve(__dirname),
   },
 };
 
