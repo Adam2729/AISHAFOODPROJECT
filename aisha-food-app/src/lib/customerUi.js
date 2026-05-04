@@ -71,19 +71,25 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
       key: "orange_money",
       backendMethod: "mobile_money",
       label: "Orange Money",
-      note: getCustomerUiCopy(cityOrMarket).manualPaymentNote,
+      note: isSpanish
+        ? "Pago seguro en linea via PayTech."
+        : "Paiement securise en ligne via PayTech.",
     },
     {
       key: "wave",
       backendMethod: "mobile_money",
       label: "Wave",
-      note: getCustomerUiCopy(cityOrMarket).manualPaymentNote,
+      note: isSpanish
+        ? "Pago seguro en linea via PayTech."
+        : "Paiement securise en ligne via PayTech.",
     },
     {
       key: "moov_money",
       backendMethod: "mobile_money",
       label: "Moov Money",
-      note: getCustomerUiCopy(cityOrMarket).manualPaymentNote,
+      note: isSpanish
+        ? "Pago seguro en linea via PayTech."
+        : "Paiement securise en ligne via PayTech.",
     },
   ];
 

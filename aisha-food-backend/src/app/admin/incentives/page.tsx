@@ -38,6 +38,7 @@ type CitiesResponse = {
   cities?: CityRow[];
   error?: { message?: string } | string;
 };
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
 
 type CreateForm = {
   name: string;
@@ -266,7 +267,7 @@ export default function AdminIncentivesPage() {
           <label className="text-sm">
             <span className="mb-1 block text-slate-600">City</span>
             <select
-              className="input min-w-[220px]"
+              className={`${INPUT_CLASS_NAME} min-w-[220px]`}
               value={cityId}
               onChange={(event) => setCityId(event.target.value)}
             >
@@ -301,13 +302,13 @@ export default function AdminIncentivesPage() {
         <h2 className="text-lg font-semibold">Create incentive campaign</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Campaign name"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
           />
           <select
-            className="input"
+            className={INPUT_CLASS_NAME}
             value={form.type}
             onChange={(event) =>
               setForm((prev) => ({
@@ -321,7 +322,7 @@ export default function AdminIncentivesPage() {
             <option value="peak_hours">peak_hours</option>
           </select>
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Threshold"
             value={form.threshold}
             onChange={(event) =>
@@ -329,7 +330,7 @@ export default function AdminIncentivesPage() {
             }
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Reward amount"
             value={form.rewardAmount}
             onChange={(event) =>
@@ -337,7 +338,7 @@ export default function AdminIncentivesPage() {
             }
           />
           <select
-            className="input"
+            className={INPUT_CLASS_NAME}
             value={form.period}
             onChange={(event) =>
               setForm((prev) => ({
@@ -350,7 +351,7 @@ export default function AdminIncentivesPage() {
             <option value="weekly">weekly</option>
           </select>
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             type="datetime-local"
             value={form.startsAt}
             onChange={(event) =>
@@ -358,7 +359,7 @@ export default function AdminIncentivesPage() {
             }
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             type="datetime-local"
             value={form.endsAt}
             onChange={(event) =>
@@ -366,7 +367,7 @@ export default function AdminIncentivesPage() {
             }
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Notes (optional)"
             value={form.notes}
             onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
@@ -434,13 +435,6 @@ export default function AdminIncentivesPage() {
         </div>
       </section>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }

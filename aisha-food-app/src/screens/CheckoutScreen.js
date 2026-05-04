@@ -483,6 +483,9 @@ export default function CheckoutScreen({ navigation }) {
     setError("");
     try {
       const sessionId = await getOrCreateSessionId();
+      const isPayTechCheckout =
+        paymentMethod === "paytech" || paymentMethod === "mobile_money";
+      const orderPaymentMethod = isPayTechCheckout ? "paytech" : paymentMethod;
       const response = await apiPost("/api/public/orders", {
         cityId: selectedCity?._id,
         restaurantId: cart.businessId,
@@ -501,7 +504,7 @@ export default function CheckoutScreen({ navigation }) {
         phone: safePhone,
         address: String(composedAddress || "").trim(),
         notes: String(deliveryInstructions || "").trim(),
-        paymentMethod,
+        paymentMethod: orderPaymentMethod,
         promoCode: promoResult?.code || undefined,
         referralCode: referralCode || undefined,
         sessionId,
@@ -509,7 +512,6 @@ export default function CheckoutScreen({ navigation }) {
           ? { lat: Number(lat), lng: Number(lng) }
           : {}),
       });
-      const isPayTechCheckout = paymentMethod === "paytech";
       let paytechPaymentUrl = "";
       let paymentLinkError = "";
 

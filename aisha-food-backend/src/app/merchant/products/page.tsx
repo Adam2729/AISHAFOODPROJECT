@@ -92,6 +92,7 @@ const QUANTITY_UNITS = [
   "can",
   "box",
 ];
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
 
 const initialProductForm = {
   name: "",
@@ -726,14 +727,14 @@ export default function MerchantProductsPage() {
         <p className="mt-1 text-xs text-slate-500">{text.sizeHint}</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-[1fr,1fr]">
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             inputMode="decimal"
             value={currentForm.quantityValue}
             onChange={(e) => setCurrentForm({ ...currentForm, quantityValue: e.target.value })}
             placeholder={text.quantityValue}
           />
           <select
-            className="input"
+            className={INPUT_CLASS_NAME}
             value={currentForm.quantityUnit}
             onChange={(e) => setCurrentForm({ ...currentForm, quantityUnit: e.target.value })}
           >
@@ -746,7 +747,7 @@ export default function MerchantProductsPage() {
           </select>
         </div>
         <input
-          className="input mt-2 w-full"
+          className={`${INPUT_CLASS_NAME} mt-2 w-full`}
           value={currentForm.displaySize}
           onChange={(e) => setCurrentForm({ ...currentForm, displaySize: e.target.value })}
           placeholder={text.displaySize}
@@ -812,14 +813,14 @@ export default function MerchantProductsPage() {
             <h2 className="font-semibold">{text.createSection}</h2>
             <div className="mt-3 grid gap-2">
               <input
-                className="input"
+                className={INPUT_CLASS_NAME}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder={text.name}
               />
               {fieldErrors.name ? <p className="text-xs text-red-600">{fieldErrors.name}</p> : null}
               <input
-                className="input"
+                className={INPUT_CLASS_NAME}
                 list="merchant-category-options"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -827,14 +828,14 @@ export default function MerchantProductsPage() {
               />
               {fieldErrors.category ? <p className="text-xs text-red-600">{fieldErrors.category}</p> : null}
               <textarea
-                className="input"
+                className={INPUT_CLASS_NAME}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder={text.description}
               />
               {renderSizeFields(form, setForm)}
               <input
-                className="input"
+                className={INPUT_CLASS_NAME}
                 value={form.imageUrl}
                 onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
                 placeholder={text.imageUrl}
@@ -865,7 +866,7 @@ export default function MerchantProductsPage() {
                 </div>
               ) : null}
               <input
-                className="input"
+                className={INPUT_CLASS_NAME}
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
                 placeholder={text.price}
@@ -894,7 +895,7 @@ export default function MerchantProductsPage() {
             <h2 className="font-semibold">{text.categories}</h2>
             <form onSubmit={createCategory} className="mt-3 flex gap-2">
               <input
-                className="input min-w-0 flex-1"
+                className={`${INPUT_CLASS_NAME} min-w-0 flex-1`}
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 placeholder={text.newCategory}
@@ -917,7 +918,7 @@ export default function MerchantProductsPage() {
                       {editing ? (
                         <div className="flex flex-wrap gap-2">
                           <input
-                            className="input min-w-0 flex-1"
+                            className={`${INPUT_CLASS_NAME} min-w-0 flex-1`}
                             value={editingCategoryName}
                             onChange={(e) => setEditingCategoryName(e.target.value)}
                           />
@@ -988,22 +989,22 @@ export default function MerchantProductsPage() {
           </div>
 
           <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[1fr,1fr]">
-            <select
-              className="input text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ProductFilter)}
-            >
+              <select
+                className={`${INPUT_CLASS_NAME} text-sm`}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ProductFilter)}
+              >
               <option value="active">{text.active}</option>
               <option value="available">{text.available}</option>
               <option value="unavailable">{text.unavailable}</option>
               <option value="archived">{text.archived}</option>
               <option value="all">{text.all}</option>
             </select>
-            <select
-              className="input text-sm"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
+              <select
+                className={`${INPUT_CLASS_NAME} text-sm`}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
               <option value="">{text.filterCategory}</option>
               {activeCategoryNames.map((category) => (
                 <option key={category} value={category}>
@@ -1016,22 +1017,22 @@ export default function MerchantProductsPage() {
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{text.bulk}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <select
-                className="input text-sm"
-                value={bulkReason}
-                onChange={(e) => setBulkReason(e.target.value as AvailabilityReason)}
-              >
+                <select
+                  className={`${INPUT_CLASS_NAME} text-sm`}
+                  value={bulkReason}
+                  onChange={(e) => setBulkReason(e.target.value as AvailabilityReason)}
+                >
                 {REASONS.map((reason) => (
                   <option key={reason} value={reason}>
                     {text.reason}: {reasonLabels[reason]}
                   </option>
                 ))}
               </select>
-              <select
-                className="input text-sm"
-                value={bulkCategory}
-                onChange={(e) => setBulkCategory(e.target.value)}
-              >
+                <select
+                  className={`${INPUT_CLASS_NAME} text-sm`}
+                  value={bulkCategory}
+                  onChange={(e) => setBulkCategory(e.target.value)}
+                >
                 <option value="">{text.selectCategory}</option>
                 {activeCategoryNames.map((category) => (
                   <option key={category} value={category}>
@@ -1165,7 +1166,7 @@ export default function MerchantProductsPage() {
                             )}
                             {!archived ? (
                               <select
-                                className="input mt-2 text-xs"
+                                className={`${INPUT_CLASS_NAME} mt-2 text-xs`}
                                 value={reason}
                                 onChange={(e) =>
                                   setRowReasonMap((prev) => ({
@@ -1238,26 +1239,26 @@ export default function MerchantProductsPage() {
                               <div className="rounded-lg border border-slate-200 bg-white p-3">
                                 <div className="grid gap-2 md:grid-cols-2">
                                   <input
-                                    className="input"
+                                    className={INPUT_CLASS_NAME}
                                     value={editForm.name}
                                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                                     placeholder={text.name}
                                   />
                                   <input
-                                    className="input"
+                                    className={INPUT_CLASS_NAME}
                                     list="merchant-category-options"
                                     value={editForm.category}
                                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                                     placeholder={text.category}
                                   />
                                   <input
-                                    className="input"
+                                    className={INPUT_CLASS_NAME}
                                     value={editForm.price}
                                     onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
                                     placeholder={text.price}
                                   />
                                   <input
-                                    className="input"
+                                    className={INPUT_CLASS_NAME}
                                     value={editForm.imageUrl}
                                     onChange={(e) => {
                                       setEditForm({ ...editForm, imageUrl: e.target.value });
@@ -1267,7 +1268,7 @@ export default function MerchantProductsPage() {
                                     placeholder={text.imageUrl}
                                   />
                                   <textarea
-                                    className="input md:col-span-2"
+                                    className={`${INPUT_CLASS_NAME} md:col-span-2`}
                                     value={editForm.description}
                                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                                     placeholder={text.description}
@@ -1367,13 +1368,6 @@ export default function MerchantProductsPage() {
         </section>
       </div>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.5rem 0.65rem;
-        }
-      `}</style>
     </MerchantPortalShell>
   );
 }

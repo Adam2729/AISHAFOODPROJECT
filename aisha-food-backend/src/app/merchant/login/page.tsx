@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
+
 export default function MerchantLoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -42,13 +44,13 @@ export default function MerchantLoginPage() {
 
         <div className="mt-4 grid gap-2">
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Email or business ID"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Password"
             type="password"
             value={password}
@@ -61,13 +63,6 @@ export default function MerchantLoginPage() {
         </div>
       </form>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }

@@ -82,6 +82,36 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
+function buildBusinessGeoPoint(business: BusinessRow) {
+  if (!Array.isArray(business?.location?.coordinates) || business.location.coordinates.length < 2) {
+    return null;
+  }
+
+  const pickupLng = numberOrNull(business.location.coordinates[0]);
+  const pickupLat = numberOrNull(business.location.coordinates[1]);
+  if (pickupLat == null || pickupLng == null) {
+    return null;
+  }
+
+  return {
+    lat: pickupLat,
+    lng: pickupLng,
+  };
+}
+
+function buildCustomerGeoPoint(order: ActiveOrderRow) {
+  const dropoffLat = numberOrNull(order.customerLocation?.lat);
+  const dropoffLng = numberOrNull(order.customerLocation?.lng);
+  if (dropoffLat == null || dropoffLng == null) {
+    return null;
+  }
+
+  return {
+    lat: dropoffLat,
+    lng: dropoffLng,
+  };
+}
+
 function hasRealValue(value: unknown): boolean {
   if (typeof value === "number") {
     return Number.isFinite(value);
@@ -164,21 +194,12 @@ function buildActiveDriverOrderPayload(order: ActiveOrderRow, business: Business
   const orderTotal = numberOrNull(order.total);
   const amountToCollect =
     shouldCollectAmount(order) && orderTotal != null ? orderTotal : 0;
-  const pickupLocation =
-    Array.isArray(business?.location?.coordinates) && business.location.coordinates.length >= 2
-      ? {
-          lng: Number(business.location.coordinates[0]),
-          lat: Number(business.location.coordinates[1]),
-        }
-      : null;
-  const dropoffLocation =
-    numberOrNull(order.customerLocation?.lat) != null &&
-    numberOrNull(order.customerLocation?.lng) != null
-      ? {
-          lat: Number(order.customerLocation?.lat),
-          lng: Number(order.customerLocation?.lng),
-        }
-      : null;
+  const pickupLocation = buildBusinessGeoPoint(business);
+  const dropoffLocation = buildCustomerGeoPoint(order);
+  const pickupLat = pickupLocation?.lat ?? null;
+  const pickupLng = pickupLocation?.lng ?? null;
+  const dropoffLat = dropoffLocation?.lat ?? null;
+  const dropoffLng = dropoffLocation?.lng ?? null;
   const missingFields = buildMissingFields({
     restaurantName,
     pickupAddress,
@@ -199,6 +220,10 @@ function buildActiveDriverOrderPayload(order: ActiveOrderRow, business: Business
     customerPhone,
     dropoffAddress,
     deliveryAddress,
+    pickupLat,
+    pickupLng,
+    dropoffLat,
+    dropoffLng,
     deliveryNote,
     landmark,
     paymentMethod,
@@ -241,6 +266,16 @@ function buildActiveDriverOrderPayload(order: ActiveOrderRow, business: Business
       businessPhone: restaurantPhone,
       businessWhatsApp: restaurantWhatsApp,
       customerPhone,
+    }),
+    restaurant: objectOrNull({
+      id: order.businessId ? String(order.businessId) : null,
+      name: restaurantName,
+      phone: restaurantPhone,
+      whatsapp: restaurantWhatsApp,
+      address: pickupAddress,
+      location: pickupLocation,
+      lat: pickupLat,
+      lng: pickupLng,
     }),
     paymentSummary: {
       method: paymentMethod,

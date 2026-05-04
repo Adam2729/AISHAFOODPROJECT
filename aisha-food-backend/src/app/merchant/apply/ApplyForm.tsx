@@ -21,6 +21,8 @@ type Props = {
   referralCode?: string;
   prefillMerchantType?: ActiveMerchantType;
 };
+const INPUT_CLASS_NAME =
+  "w-full rounded-[1.1rem] border border-slate-300 bg-white px-4 py-4 text-[0.95rem] outline-none transition-[border-color,box-shadow,background] duration-150 focus:border-slate-950 focus:bg-white focus:ring-4 focus:ring-slate-900/10";
 
 type CityRow = {
   _id: string;
@@ -509,40 +511,40 @@ export default function ApplyForm({
               value={form.businessName}
               onChange={(event) => update("businessName", event.target.value)}
               placeholder="Business name"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
             <input
               value={form.ownerName}
               onChange={(event) => update("ownerName", event.target.value)}
               placeholder="Owner full name"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 value={form.phone}
                 onChange={(event) => update("phone", event.target.value)}
                 placeholder="Phone number"
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
               <input
                 value={form.whatsapp}
                 onChange={(event) => update("whatsapp", event.target.value)}
                 placeholder="WhatsApp contact"
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
             </div>
             <input
               value={form.email}
               onChange={(event) => update("email", event.target.value)}
               placeholder="Email address"
-              className="input"
+              className={INPUT_CLASS_NAME}
               type="email"
             />
             <input
               value={form.password}
               onChange={(event) => update("password", event.target.value)}
               placeholder="Password"
-              className="input"
+              className={INPUT_CLASS_NAME}
               type="password"
             />
           </div>
@@ -561,12 +563,12 @@ export default function ApplyForm({
                 value={form.country}
                 onChange={(event) => update("country", event.target.value)}
                 placeholder="Country"
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
               <select
                 value={form.cityId}
                 onChange={(event) => update("cityId", event.target.value)}
-                className="input bg-white"
+                className={INPUT_CLASS_NAME}
               >
                 <option value="">{loadingCities ? "Loading cities..." : "Select city"}</option>
                 {cities.map((city) => (
@@ -580,20 +582,20 @@ export default function ApplyForm({
               value={form.area}
               onChange={(event) => update("area", event.target.value)}
               placeholder="Area or neighborhood"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
             <input
               value={form.address}
               onChange={(event) => update("address", event.target.value)}
               placeholder="Full address"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
             <textarea
               value={form.notes}
               onChange={(event) => update("notes", event.target.value)}
               rows={3}
               placeholder="Anything ops should know before review"
-              className="input"
+              className={`${INPUT_CLASS_NAME} min-h-[120px] resize-y`}
             />
           </div>
         ) : null}
@@ -611,14 +613,14 @@ export default function ApplyForm({
                 value={form.cuisineType}
                 onChange={(event) => update("cuisineType", event.target.value)}
                 placeholder={setupLabels.categoryPlaceholder}
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
             ) : (
               <input
                 value={form.storeCategory}
                 onChange={(event) => update("storeCategory", event.target.value)}
                 placeholder={setupLabels.categoryPlaceholder}
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
             )}
             <textarea
@@ -626,28 +628,28 @@ export default function ApplyForm({
               onChange={(event) => update("openingHoursText", event.target.value)}
               rows={3}
               placeholder="Opening hours, for example Mon-Sat 8:00 to 22:00"
-              className="input"
+              className={`${INPUT_CLASS_NAME} min-h-[120px] resize-y`}
             />
             <div className="grid gap-3 md:grid-cols-3">
               <input
                 value={form.averagePrepMinutes}
                 onChange={(event) => update("averagePrepMinutes", event.target.value)}
                 placeholder={setupLabels.prepLabel}
-                className="input"
+                className={INPUT_CLASS_NAME}
                 inputMode="numeric"
               />
               <input
                 value={form.minimumOrderAmount}
                 onChange={(event) => update("minimumOrderAmount", event.target.value)}
                 placeholder={setupLabels.minOrderLabel}
-                className="input"
+                className={INPUT_CLASS_NAME}
                 inputMode="decimal"
               />
               <input
                 value={form.deliveryRadiusKm}
                 onChange={(event) => update("deliveryRadiusKm", event.target.value)}
                 placeholder="Delivery radius (km)"
-                className="input"
+                className={INPUT_CLASS_NAME}
                 inputMode="decimal"
               />
             </div>
@@ -655,13 +657,13 @@ export default function ApplyForm({
               value={form.logoUrl}
               onChange={(event) => update("logoUrl", event.target.value)}
               placeholder="Logo URL (Cloudinary or CDN)"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
             <input
               value={form.coverImageUrl}
               onChange={(event) => update("coverImageUrl", event.target.value)}
               placeholder="Cover image URL (Cloudinary or CDN)"
-              className="input"
+              className={INPUT_CLASS_NAME}
             />
           </div>
         ) : null}
@@ -742,19 +744,19 @@ export default function ApplyForm({
                 value={form.legalIdNumber}
                 onChange={(event) => update("legalIdNumber", event.target.value)}
                 placeholder="National ID or legal ID"
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
               <input
                 value={form.businessRegistrationNumber}
                 onChange={(event) => update("businessRegistrationNumber", event.target.value)}
                 placeholder="Business registration number"
-                className="input"
+                className={INPUT_CLASS_NAME}
               />
             </div>
             <select
               value={form.payoutMethod}
               onChange={(event) => update("payoutMethod", event.target.value as PayoutMethod)}
-              className="input bg-white"
+              className={INPUT_CLASS_NAME}
             >
               {PAYOUT_METHODS.map((method) => (
                 <option key={method} value={method}>
@@ -767,7 +769,7 @@ export default function ApplyForm({
               onChange={(event) => update("payoutDetails", event.target.value)}
               rows={3}
               placeholder="Bank account, mobile money, or cash collection instructions"
-              className="input"
+              className={`${INPUT_CLASS_NAME} min-h-[120px] resize-y`}
             />
             <label className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-700">
               <input
@@ -866,29 +868,6 @@ export default function ApplyForm({
         </div>
       </section>
 
-      <style jsx>{`
-        .input {
-          width: 100%;
-          background: #ffffff;
-          border: 1px solid #cbd5e1;
-          border-radius: 1.1rem;
-          padding: 0.95rem 1rem;
-          font-size: 0.95rem;
-          outline: none;
-          transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-        }
-
-        .input:focus {
-          border-color: #0f172a;
-          box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08);
-          background: #fff;
-        }
-
-        textarea.input {
-          min-height: 120px;
-          resize: vertical;
-        }
-      `}</style>
     </div>
   );
 }

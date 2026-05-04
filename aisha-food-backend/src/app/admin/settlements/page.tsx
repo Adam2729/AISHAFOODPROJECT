@@ -34,6 +34,7 @@ type ProofForm = {
   collectionMethod: "cash" | "transfer" | "other";
   receiptPhotoUrl: string;
 };
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
 
 function isProofComplete(settlement: Settlement) {
   if (settlement.status !== "collected" && settlement.status !== "locked") return true;
@@ -288,7 +289,7 @@ export default function AdminSettlementsPage() {
       </div>
 
       <div className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
-        <input className="input" value={weekKey} onChange={(e) => setWeekKey(e.target.value)} placeholder="YYYY-Www" />
+            <input className={INPUT_CLASS_NAME} value={weekKey} onChange={(e) => setWeekKey(e.target.value)} placeholder="YYYY-Www" />
         <div className="flex gap-2">
           <button onClick={load} className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white">
             Refresh
@@ -372,20 +373,20 @@ export default function AdminSettlementsPage() {
                   {r.status === "pending" ? (
                     <div className="grid gap-2">
                       <input
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         placeholder="Receipt reference"
                         value={getProofForm(r).receiptRef}
                         onChange={(e) => updateProofForm(r, { receiptRef: e.target.value })}
                       />
                       <input
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         placeholder="Collector name (optional)"
                         value={getProofForm(r).collectorName}
                         onChange={(e) => updateProofForm(r, { collectorName: e.target.value })}
                         maxLength={60}
                       />
                       <select
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         value={getProofForm(r).collectionMethod}
                         onChange={(e) =>
                           updateProofForm(r, {
@@ -398,7 +399,7 @@ export default function AdminSettlementsPage() {
                         <option value="other">other</option>
                       </select>
                       <input
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         placeholder="Receipt photo URL (optional)"
                         value={getProofForm(r).receiptPhotoUrl}
                         onChange={(e) => updateProofForm(r, { receiptPhotoUrl: e.target.value })}
@@ -443,13 +444,6 @@ export default function AdminSettlementsPage() {
         </table>
       </div>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }

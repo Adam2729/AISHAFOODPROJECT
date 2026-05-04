@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
+
 export default function MerchantSetPinPage() {
   const router = useRouter();
   const [currentPin, setCurrentPin] = useState("");
@@ -43,19 +45,19 @@ export default function MerchantSetPinPage() {
 
         <div className="mt-4 grid gap-2">
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="PIN actual (si aplica)"
             value={currentPin}
             onChange={(e) => setCurrentPin(e.target.value)}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Nuevo PIN (4-8 digitos)"
             value={newPin}
             onChange={(e) => setNewPin(e.target.value)}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Confirmar nuevo PIN"
             value={confirmPin}
             onChange={(e) => setConfirmPin(e.target.value)}
@@ -67,13 +69,6 @@ export default function MerchantSetPinPage() {
         </div>
       </form>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }

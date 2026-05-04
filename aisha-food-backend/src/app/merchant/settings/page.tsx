@@ -58,6 +58,7 @@ const DAY_LABELS: Record<DayKey, string> = {
   sat: "Saturday",
   sun: "Sunday",
 };
+const INPUT_CLASS_NAME = "rounded-xl border border-slate-300 px-3 py-2.5";
 
 function defaultWeekly(): Record<DayKey, DaySchedule> {
   return {
@@ -307,19 +308,19 @@ export default function MerchantSettingsPage() {
               onChange={(e) =>
                 setDeliveryType(e.target.value as "own_driver" | "platform_driver")
               }
-              className="input"
+              className={INPUT_CLASS_NAME}
             >
               <option value="own_driver">Own drivers</option>
               <option value="platform_driver">Aisha Food drivers</option>
             </select>
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={deliveryRadiusKm}
               onChange={(e) => setDeliveryRadiusKm(e.target.value)}
               placeholder="Delivery radius (km)"
             />
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={prepMins}
               onChange={(e) => setPrepMins(e.target.value)}
               placeholder="Average prep time (minutes)"
@@ -340,15 +341,15 @@ export default function MerchantSettingsPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold">Store profile</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <input className="input" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
-            <input className="input" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Owner full name" />
-            <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" />
-            <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
-            <input className="input" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" />
-            <input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Area / neighborhood" />
-            <input className="input md:col-span-2" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" />
-            <input className="input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Logo URL" />
-            <input className="input" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="Cover image URL" />
+            <input className={INPUT_CLASS_NAME} value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
+            <input className={INPUT_CLASS_NAME} value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Owner full name" />
+            <input className={INPUT_CLASS_NAME} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" />
+            <input className={INPUT_CLASS_NAME} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+            <input className={INPUT_CLASS_NAME} value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" />
+            <input className={INPUT_CLASS_NAME} value={area} onChange={(e) => setArea(e.target.value)} placeholder="Area / neighborhood" />
+            <input className={`${INPUT_CLASS_NAME} md:col-span-2`} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" />
+            <input className={INPUT_CLASS_NAME} value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Logo URL" />
+            <input className={INPUT_CLASS_NAME} value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="Cover image URL" />
           </div>
         </section>
 
@@ -356,13 +357,13 @@ export default function MerchantSettingsPage() {
           <h2 className="font-semibold">Operations and payouts</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={minimumOrderAmount}
               onChange={(e) => setMinimumOrderAmount(e.target.value)}
               placeholder="Minimum order amount"
             />
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               placeholder={market.defaultTimezone}
@@ -370,7 +371,7 @@ export default function MerchantSettingsPage() {
             <select
               value={payoutMethod}
               onChange={(e) => setPayoutMethod(e.target.value)}
-              className="input"
+              className={INPUT_CLASS_NAME}
             >
               <option value="cash_collection">cash_collection</option>
               <option value="weekly_cashout">weekly_cashout</option>
@@ -378,13 +379,13 @@ export default function MerchantSettingsPage() {
               <option value="mobile_money">mobile_money</option>
             </select>
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={payoutContactName}
               onChange={(e) => setPayoutContactName(e.target.value)}
               placeholder="Payout contact name"
             />
             <textarea
-              className="input md:col-span-2"
+              className={`${INPUT_CLASS_NAME} md:col-span-2`}
               value={payoutDetails}
               onChange={(e) => setPayoutDetails(e.target.value)}
               placeholder="Bank details, mobile money account, or cash collection instructions"
@@ -423,7 +424,7 @@ export default function MerchantSettingsPage() {
                     </td>
                     <td className="py-2">
                       <input
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         type="time"
                         value={weekly[day].open}
                         disabled={weekly[day].closed}
@@ -437,7 +438,7 @@ export default function MerchantSettingsPage() {
                     </td>
                     <td className="py-2">
                       <input
-                        className="input"
+                        className={INPUT_CLASS_NAME}
                         type="time"
                         value={weekly[day].close}
                         disabled={weekly[day].closed}
@@ -467,13 +468,6 @@ export default function MerchantSettingsPage() {
         </section>
       </form>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.75rem;
-          padding: 0.65rem 0.75rem;
-        }
-      `}</style>
     </MerchantPortalShell>
   );
 }

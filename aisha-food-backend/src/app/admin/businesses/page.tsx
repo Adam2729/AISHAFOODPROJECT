@@ -46,6 +46,7 @@ type Business = {
     graceDaysRemaining: number;
   };
 };
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
 
 type RiskFilter = "all" | "paused" | "at-risk";
 const SESSION_ADMIN_KEY = "__session__";
@@ -404,7 +405,7 @@ export default function AdminBusinessesPage() {
         <form onSubmit={createBusiness} className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold">Create Business</h2>
           <div className="mt-3 grid gap-2">
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "restaurant" | "colmado" })}>
+            <select className={INPUT_CLASS_NAME} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "restaurant" | "colmado" })}>
               <option value="restaurant">restaurant</option>
               <option value="colmado">colmado</option>
             </select>
@@ -416,22 +417,22 @@ export default function AdminBusinessesPage() {
               />
               Demo business (training mode)
             </label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" />
-            <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" />
-            <input className="input" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="WhatsApp" />
-            <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" />
+            <input className={INPUT_CLASS_NAME} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" />
+            <input className={INPUT_CLASS_NAME} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" />
+            <input className={INPUT_CLASS_NAME} value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="WhatsApp" />
+            <input className={INPUT_CLASS_NAME} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" />
             <div className="grid grid-cols-2 gap-2">
-              <input className="input" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} placeholder="Lat" />
-              <input className="input" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} placeholder="Lng" />
+              <input className={INPUT_CLASS_NAME} value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} placeholder="Lat" />
+              <input className={INPUT_CLASS_NAME} value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} placeholder="Lng" />
             </div>
-            <input className="input" value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="Logo URL" />
+            <input className={INPUT_CLASS_NAME} value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="Logo URL" />
             <input
-              className="input"
+              className={INPUT_CLASS_NAME}
               value={form.commissionRate}
               onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
               placeholder="Commission rate (0.08)"
             />
-            <input className="input" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value })} placeholder="Merchant PIN" />
+            <input className={INPUT_CLASS_NAME} value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value })} placeholder="Merchant PIN" />
             <button disabled={saving} className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white">
               {saving ? "Creating..." : "Create"}
             </button>
@@ -643,13 +644,6 @@ export default function AdminBusinessesPage() {
         </section>
       </div>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }

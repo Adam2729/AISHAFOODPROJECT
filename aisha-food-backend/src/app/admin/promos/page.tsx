@@ -27,6 +27,7 @@ type CreateForm = {
   maxRedemptions: string;
   expiresAt: string;
 };
+const INPUT_CLASS_NAME = "rounded-lg border border-slate-300 px-3 py-2";
 
 export default function AdminPromosPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -181,13 +182,13 @@ export default function AdminPromosPage() {
         <h2 className="text-lg font-semibold">Crear promo</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Code (for example: LAUNCH10)"
             value={form.code}
             onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
           />
           <select
-            className="input"
+            className={INPUT_CLASS_NAME}
             value={form.type}
             onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as "percentage" | "fixed" }))}
           >
@@ -195,31 +196,31 @@ export default function AdminPromosPage() {
             <option value="fixed">fixed</option>
           </select>
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Value"
             value={form.value}
             onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Min subtotal"
             value={form.minSubtotal}
             onChange={(e) => setForm((prev) => ({ ...prev, minSubtotal: e.target.value }))}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Per phone limit"
             value={form.perPhoneLimit}
             onChange={(e) => setForm((prev) => ({ ...prev, perPhoneLimit: e.target.value }))}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             placeholder="Max redemptions (optional)"
             value={form.maxRedemptions}
             onChange={(e) => setForm((prev) => ({ ...prev, maxRedemptions: e.target.value }))}
           />
           <input
-            className="input"
+            className={INPUT_CLASS_NAME}
             type="datetime-local"
             value={form.expiresAt}
             onChange={(e) => setForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
@@ -286,13 +287,6 @@ export default function AdminPromosPage() {
         </div>
       </section>
 
-      <style jsx>{`
-        .input {
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          padding: 0.55rem 0.7rem;
-        }
-      `}</style>
     </main>
   );
 }
