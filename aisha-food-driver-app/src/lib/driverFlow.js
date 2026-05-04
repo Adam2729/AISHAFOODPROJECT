@@ -150,13 +150,22 @@ export function getDeliveryNotes(order) {
 
 export function getPickupLocation(order) {
   return normalizePoint(
-    order?.pickupLocation || order?.pickup?.location || order?.restaurant?.location || order?.business?.location
+    (order?.pickupLat != null && order?.pickupLng != null
+      ? { lat: order.pickupLat, lng: order.pickupLng }
+      : null) ||
+      order?.pickupLocation ||
+      order?.pickup?.location ||
+      order?.restaurant?.location ||
+      order?.business?.location
   );
 }
 
 export function getDropoffLocation(order) {
   return normalizePoint(
-    order?.dropoffLocation ||
+    (order?.dropoffLat != null && order?.dropoffLng != null
+      ? { lat: order.dropoffLat, lng: order.dropoffLng }
+      : null) ||
+      order?.dropoffLocation ||
       order?.dropoff?.location ||
       order?.customer?.location ||
       order?.deliveryAddressLocation

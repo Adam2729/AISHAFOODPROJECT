@@ -276,6 +276,10 @@ export default function ActiveDeliveryScreen({
           driverLocation={liveDriverLocation}
           pickupLocation={pickupLocation}
           dropoffLocation={dropoffLocation}
+          pickupLat={order?.pickupLat ?? order?.restaurant?.lat ?? null}
+          pickupLng={order?.pickupLng ?? order?.restaurant?.lng ?? null}
+          dropoffLat={order?.dropoffLat ?? null}
+          dropoffLng={order?.dropoffLng ?? null}
           permissionDenied={locationPermissionDenied}
           onOpenExternalNavigation={mapNavigationHandler}
         />

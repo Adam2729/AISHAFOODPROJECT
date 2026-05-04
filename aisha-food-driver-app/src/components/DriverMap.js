@@ -57,11 +57,11 @@ function FallbackCard({ permissionDenied, onOpenExternalNavigation, hasNavigatio
   return (
     <View style={styles.fallbackCard}>
       <Ionicons name="map-outline" size={24} color={DRIVER_THEME.ORANGE_DARK} />
-      <Text style={styles.fallbackTitle}>Map unavailable</Text>
+      <Text style={styles.fallbackTitle}>Location unavailable</Text>
       <Text style={styles.fallbackText}>
         {permissionDenied
           ? "Location permission denied. Use address and phone contact."
-          : "Map unavailable. Use address and phone contact."}
+          : "Location unavailable. Use address and phone contact."}
       </Text>
       {hasNavigationTarget && onOpenExternalNavigation ? (
         <Pressable style={styles.openMapsButton} onPress={onOpenExternalNavigation}>
@@ -77,6 +77,10 @@ export default function DriverMap({
   driverLocation,
   pickupLocation,
   dropoffLocation,
+  pickupLat = null,
+  pickupLng = null,
+  dropoffLat = null,
+  dropoffLng = null,
   permissionDenied = false,
   onOpenExternalNavigation,
 }) {
@@ -86,12 +90,20 @@ export default function DriverMap({
     [driverLocation]
   );
   const normalizedPickupLocation = useMemo(
-    () => normalizePoint(pickupLocation),
-    [pickupLocation]
+    () => normalizePoint(
+      (pickupLat != null && pickupLng != null ? { lat: pickupLat, lng: pickupLng } : null) ||
+        pickupLocation
+    ),
+    [pickupLat, pickupLng, pickupLocation]
   );
   const normalizedDropoffLocation = useMemo(
-    () => normalizePoint(dropoffLocation),
-    [dropoffLocation]
+    () =>
+      normalizePoint(
+        (dropoffLat != null && dropoffLng != null
+          ? { lat: dropoffLat, lng: dropoffLng }
+          : null) || dropoffLocation
+      ),
+    [dropoffLat, dropoffLng, dropoffLocation]
   );
 
   const points = useMemo(

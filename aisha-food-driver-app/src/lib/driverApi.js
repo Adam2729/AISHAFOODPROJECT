@@ -294,11 +294,24 @@ function normalizeDriverOrder(order) {
   const business = order.business && typeof order.business === "object" ? order.business : {};
   const support = order.support && typeof order.support === "object" ? order.support : {};
   const driverLocation = normalizeLocation(order.driverLocation || order.driver?.lastLocation);
+  const explicitPickupLocation = normalizeGeoPoint({
+    lat: order.pickupLat ?? order.restaurant?.lat,
+    lng: order.pickupLng ?? order.restaurant?.lng,
+  });
   const pickupLocation = normalizeGeoPoint(
-    order.pickup?.location || order.pickupLocation || order.business?.location
+    explicitPickupLocation ||
+      order.pickup?.location ||
+      order.pickupLocation ||
+      order.restaurant?.location ||
+      order.business?.location
   );
+  const explicitDropoffLocation = normalizeGeoPoint({
+    lat: order.dropoffLat,
+    lng: order.dropoffLng,
+  });
   const dropoffLocation = normalizeGeoPoint(
-    order.dropoff?.location ||
+    explicitDropoffLocation ||
+      order.dropoff?.location ||
       order.customer?.location ||
       order.deliveryAddressLocation ||
       order.dropoffLocation

@@ -888,7 +888,16 @@ export default function HomeScreen({ navigation }) {
           }
           onNavigatePickup={() =>
             handleOpenNavigation({
-              ...displayActiveOrder?.pickupLocation,
+              latitude:
+                displayActiveOrder?.pickupLat ??
+                displayActiveOrder?.restaurant?.lat ??
+                displayActiveOrder?.pickupLocation?.lat ??
+                displayActiveOrder?.pickupLocation?.latitude,
+              longitude:
+                displayActiveOrder?.pickupLng ??
+                displayActiveOrder?.restaurant?.lng ??
+                displayActiveOrder?.pickupLocation?.lng ??
+                displayActiveOrder?.pickupLocation?.longitude,
               address:
                 displayActiveOrder?.pickup?.address ||
                 displayActiveOrder?.business?.address ||
@@ -898,7 +907,14 @@ export default function HomeScreen({ navigation }) {
           }
           onNavigateCustomer={() =>
             handleOpenNavigation({
-              ...displayActiveOrder?.dropoffLocation,
+              latitude:
+                displayActiveOrder?.dropoffLat ??
+                displayActiveOrder?.dropoffLocation?.lat ??
+                displayActiveOrder?.dropoffLocation?.latitude,
+              longitude:
+                displayActiveOrder?.dropoffLng ??
+                displayActiveOrder?.dropoffLocation?.lng ??
+                displayActiveOrder?.dropoffLocation?.longitude,
               address:
                 displayActiveOrder?.dropoff?.address ||
                 displayActiveOrder?.customer?.address ||
