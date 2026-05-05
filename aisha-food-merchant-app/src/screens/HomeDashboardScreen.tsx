@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import Logo from "@/src/components/Logo";
 import OrangeButton from "@/src/components/OrangeButton";
 import OrderCard from "@/src/components/OrderCard";
 import ScreenHeader from "@/src/components/ScreenHeader";
@@ -29,6 +30,10 @@ export default function HomeDashboardScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.brandBanner}>
+        <Logo width={110} height={44} />
+        <Text style={styles.brandBannerText}>OranjeEats Merchant</Text>
+      </View>
       <ScreenHeader
         title={merchantProfile.restaurantName}
         subtitle="Manage live orders, menu and payouts"
@@ -134,6 +139,16 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     backgroundColor: colors.background,
     gap: 18,
+  },
+  brandBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandBannerText: {
+    color: colors.primaryDark,
+    fontSize: 14,
+    fontWeight: "900",
   },
   switchWrap: {
     alignItems: "center",

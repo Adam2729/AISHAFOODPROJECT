@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 
-import BrandLogo from "@/src/components/BrandLogo";
+import Logo from "@/src/components/Logo";
 import OrangeButton from "@/src/components/OrangeButton";
 import { approvedMerchantCredentials } from "@/src/data/mockData";
 import { useMerchantApp } from "@/src/context/MerchantAppContext";
@@ -42,7 +42,7 @@ export default function LoginScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.logoWrap}>
-        <BrandLogo size={96} />
+        <Logo width={150} height={150} />
       </View>
       <Text style={styles.title}>OranjeEats Merchant</Text>
       <Text style={styles.subtitle}>Sign in with your approved restaurant account.</Text>

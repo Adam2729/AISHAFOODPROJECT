@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import BrandLogo from "@/src/components/BrandLogo";
+import Logo from "@/src/components/Logo";
 import { colors } from "@/src/theme/colors";
 
 export default function SplashScreen() {
   return (
     <View style={styles.container}>
-      <BrandLogo size={110} />
+      <Logo width={170} height={170} />
       <Text style={styles.title}>OranjeEats Merchant</Text>
       <Text style={styles.subtitle}>Manage orders, menu and payments</Text>
     </View>

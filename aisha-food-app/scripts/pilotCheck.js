@@ -17,7 +17,7 @@ function readAndroidPackage() {
   }
 }
 
-line("Aisha Food Android pilot check");
+line("OranjeEats Android pilot check");
 line("");
 line("Required before running an EAS build:");
 line("- EXPO_PUBLIC_LAUNCH_ENV must be set to local, preview, or production.");

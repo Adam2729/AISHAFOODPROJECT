@@ -1,7 +1,7 @@
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 
-import BrandLogo from "@/src/components/BrandLogo";
+import Logo from "@/src/components/Logo";
 import OrangeButton from "@/src/components/OrangeButton";
 import { useMerchantApp } from "@/src/context/MerchantAppContext";
 import { colors } from "@/src/theme/colors";
@@ -28,7 +28,7 @@ export default function PendingApprovalScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <BrandLogo size={110} />
+      <Logo width={170} height={170} />
       <Text style={styles.title}>Your restaurant application is under review.</Text>
       <Text style={styles.subtitle}>
         Application submitted. We will contact you on WhatsApp or email after review.
