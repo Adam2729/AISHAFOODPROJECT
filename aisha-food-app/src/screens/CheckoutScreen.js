@@ -38,6 +38,15 @@ function normalizePhone(value) {
   return String(value || "").replace(/\D+/g, "").trim();
 }
 
+function normalizeCheckoutPaymentMethod(method) {
+  const normalized = String(method || "").trim().toLowerCase();
+  if (["wave", "orange_money", "moov_money", "mobile_money"].includes(normalized)) {
+    return "paytech";
+  }
+  if (normalized === "paytech") return "paytech";
+  return "cash";
+}
+
 export default function CheckoutScreen({ navigation }) {
   const { selectedCity, market } = useAppShell();
   const [cart, setCart] = useState({ businessId: "", businessName: "", items: [] });
@@ -204,7 +213,12 @@ export default function CheckoutScreen({ navigation }) {
       : ["cash"];
     return methods.filter(
       (method) =>
-        method === "cash" || method === "mobile_money" || method === "paytech"
+        method === "cash" ||
+        method === "orange_money" ||
+        method === "wave" ||
+        method === "moov_money" ||
+        method === "mobile_money" ||
+        method === "paytech"
     );
   }, [market.paymentMethods]);
 
@@ -483,9 +497,12 @@ export default function CheckoutScreen({ navigation }) {
     setError("");
     try {
       const sessionId = await getOrCreateSessionId();
-      const isPayTechCheckout =
-        paymentMethod === "paytech" || paymentMethod === "mobile_money";
-      const orderPaymentMethod = isPayTechCheckout ? "paytech" : paymentMethod;
+      const requestedPaymentMethod =
+        selectedPaymentOption === "cash"
+          ? paymentMethod
+          : selectedPaymentOption || paymentMethod;
+      const orderPaymentMethod = normalizeCheckoutPaymentMethod(requestedPaymentMethod);
+      const isPayTechCheckout = orderPaymentMethod === "paytech";
       const response = await apiPost("/api/public/orders", {
         cityId: selectedCity?._id,
         restaurantId: cart.businessId,

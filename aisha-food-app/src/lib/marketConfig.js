@@ -36,9 +36,17 @@ const MARKET_DEFAULTS = {
     supportWhatsApp: ML_SUPPORT_WHATSAPP_DEFAULT,
     supportWhatsAppIsPlaceholder: true,
     defaultTimezone: "Africa/Bamako",
-    paymentMethods: ["cash", "mobile_money", "paytech"],
+    paymentMethods: [
+      "cash",
+      "orange_money",
+      "wave",
+      "moov_money",
+      "mobile_money",
+      "paytech",
+    ],
   },
 };
+const PAYMENT_METHOD_FALLBACK = ["cash", "mobile_money", "paytech"];
 const PLACEHOLDER_SUPPORT_NUMBERS = new Set([
   normalizeDigits(DO_SUPPORT_WHATSAPP_PLACEHOLDER),
   normalizeDigits(ML_SUPPORT_WHATSAPP_PLACEHOLDER),
@@ -135,11 +143,23 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
       return;
     }
     if (
+      normalized === "orange_money" ||
       normalized === "mobile_money" ||
       normalized === "orangemoney" ||
+      normalized === "moov_money" ||
       normalized === "moovmoney" ||
-      normalized === "wave"
+      normalized === "wave" ||
+      normalized === "wavemoney"
     ) {
+      if (normalized === "orange_money" || normalized === "orangemoney") {
+        methods.add("orange_money");
+      }
+      if (normalized === "wave" || normalized === "wavemoney") {
+        methods.add("wave");
+      }
+      if (normalized === "moov_money" || normalized === "moovmoney") {
+        methods.add("moov_money");
+      }
       methods.add("mobile_money");
       return;
     }
@@ -148,7 +168,23 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
     }
   });
 
-  return methods.size ? Array.from(methods) : [...fallbackMethods];
+  if (!methods.size) {
+    return [...fallbackMethods];
+  }
+
+  const isBamakoMarket =
+    inferMarketCode(cityOrMarket) === "ML" &&
+    (normalizeUpper(cityOrMarket?.code) === "BKO" ||
+      normalizeLower(cityOrMarket?.name) === "bamako" ||
+      normalizeLower(cityOrMarket?.country || cityOrMarket?.countryName) === "mali");
+  const hasDigitalMethods = Array.from(methods).some((method) =>
+    ["orange_money", "wave", "moov_money", "mobile_money", "paytech"].includes(method)
+  );
+  if (isBamakoMarket && !hasDigitalMethods) {
+    return [...MARKET_DEFAULTS.ML.paymentMethods];
+  }
+
+  return Array.from(methods);
 }
 
 export function getMarketConfig(cityOrMarket) {
@@ -187,7 +223,12 @@ export function getMarketConfig(cityOrMarket) {
       PLACEHOLDER_SUPPORT_NUMBERS.has(supportWhatsApp) || isPlaceholderSupportNumber(supportWhatsApp),
     supportWhatsAppConfigured: !isPlaceholderSupportNumber(supportWhatsApp),
     defaultTimezone: normalize(cityOrMarket?.defaultTimezone) || base.defaultTimezone,
-    paymentMethods: normalizePaymentMethods(cityOrMarket, base.paymentMethods),
+    paymentMethods: normalizePaymentMethods(
+      cityOrMarket,
+      Array.isArray(base.paymentMethods) && base.paymentMethods.length
+        ? base.paymentMethods
+        : PAYMENT_METHOD_FALLBACK
+    ),
   };
 }
 

@@ -58,6 +58,13 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
     (Array.isArray(availableMethods) && availableMethods.length ? availableMethods : market.paymentMethods || ["cash"])
       .map((value) => normalizeLower(value))
   );
+  const supportsAnyMobileMoney =
+    methodSet.has("mobile_money") ||
+    methodSet.has("orange_money") ||
+    methodSet.has("orangemoney") ||
+    methodSet.has("wave") ||
+    methodSet.has("moov_money") ||
+    methodSet.has("moovmoney");
 
   const cashOption = {
     key: "cash",
@@ -66,32 +73,34 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
     note: getCustomerUiCopy(cityOrMarket).manualPaymentNote,
   };
 
-  const mobileMoneyOptions = [
-    {
+  const mobileMoneyNote = isSpanish
+    ? "Pago seguro en linea via PayTech."
+    : "Paiement securise en ligne via PayTech.";
+  const mobileMoneyOptions = [];
+  if (methodSet.has("mobile_money") || methodSet.has("orange_money") || methodSet.has("orangemoney")) {
+    mobileMoneyOptions.push({
       key: "orange_money",
       backendMethod: "mobile_money",
       label: "Orange Money",
-      note: isSpanish
-        ? "Pago seguro en linea via PayTech."
-        : "Paiement securise en ligne via PayTech.",
-    },
-    {
+      note: mobileMoneyNote,
+    });
+  }
+  if (methodSet.has("mobile_money") || methodSet.has("wave")) {
+    mobileMoneyOptions.push({
       key: "wave",
       backendMethod: "mobile_money",
       label: "Wave",
-      note: isSpanish
-        ? "Pago seguro en linea via PayTech."
-        : "Paiement securise en ligne via PayTech.",
-    },
-    {
+      note: mobileMoneyNote,
+    });
+  }
+  if (methodSet.has("mobile_money") || methodSet.has("moov_money") || methodSet.has("moovmoney")) {
+    mobileMoneyOptions.push({
       key: "moov_money",
       backendMethod: "mobile_money",
       label: "Moov Money",
-      note: isSpanish
-        ? "Pago seguro en linea via PayTech."
-        : "Paiement securise en ligne via PayTech.",
-    },
-  ];
+      note: mobileMoneyNote,
+    });
+  }
 
   const payTechOption = {
     key: "paytech",
@@ -106,7 +115,7 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
 
   const options = [];
   if (methodSet.has("cash")) options.push(cashOption);
-  if (methodSet.has("mobile_money")) {
+  if (supportsAnyMobileMoney) {
     options.push(...mobileMoneyOptions);
   }
   if (methodSet.has("paytech")) {
