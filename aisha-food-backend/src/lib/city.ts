@@ -36,7 +36,16 @@ export type CityLean = {
   riderPayoutModel: "none" | "perDelivery";
   riderPayoutFlat: number;
   platformDeliveryMargin: number;
-  paymentMethods: Array<"cash" | "orangeMoney" | "moovMoney" | "paytech">;
+  paymentMethods: Array<
+    | "cash"
+    | "orangeMoney"
+    | "orange_money"
+    | "wave"
+    | "moovMoney"
+    | "moov_money"
+    | "mobile_money"
+    | "paytech"
+  >;
   riderModel: "selfDelivery" | "freelance" | "hybrid";
   supportWhatsAppE164: string;
   isActive: boolean;
@@ -137,6 +146,18 @@ function shouldSeedField(
     return normalized === "18090000000" || normalized === "22300000000";
   }
 
+  if (field === "paymentMethods") {
+    const current = Array.isArray(existing.paymentMethods)
+      ? existing.paymentMethods.map((value) => String(value || "").trim())
+      : [];
+    const next = Array.isArray(seed.paymentMethods)
+      ? seed.paymentMethods.map((value) => String(value || "").trim())
+      : [];
+    if (!current.length) return true;
+    const currentSet = new Set(current);
+    return next.some((value) => !currentSet.has(value));
+  }
+
   if (field === "isActive") {
     return Boolean(seed.isActive) && existing.isActive !== true;
   }
@@ -203,7 +224,14 @@ function seedConfig(): SeedCityInput[] {
       riderPayoutModel: "perDelivery",
       riderPayoutFlat: 1200,
       platformDeliveryMargin: 200,
-      paymentMethods: ["cash", "orangeMoney", "moovMoney", "paytech"],
+      paymentMethods: [
+        "cash",
+        "orange_money",
+        "wave",
+        "moov_money",
+        "mobile_money",
+        "paytech",
+      ],
       riderModel: "freelance",
       supportWhatsAppE164: "",
       isActive: bamakoActive,

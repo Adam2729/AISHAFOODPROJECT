@@ -309,9 +309,26 @@ export async function POST(req: Request) {
     const hasGoogleKey = Boolean(String(process.env.GOOGLE_MAPS_API_KEY || "").trim());
     const allowDevLocationBypass = DEV_ALLOW_ORDER_LOCATION_BYPASS;
     const phase6StylePayload = Boolean(body.restaurantId || body.notes != null);
-    if (paymentMethodRaw && !["cash", "mobile_money", "mobilemoney", "paytech"].includes(paymentMethodRaw)) {
+    if (
+      paymentMethodRaw &&
+      ![
+        "cash",
+        "mobile_money",
+        "mobilemoney",
+        "orange_money",
+        "orangemoney",
+        "wave",
+        "moov_money",
+        "moovmoney",
+        "paytech",
+      ].includes(paymentMethodRaw)
+    ) {
       return finish(
-        fail("VALIDATION_ERROR", "paymentMethod must be cash, mobile_money, or paytech.", 400),
+        fail(
+          "VALIDATION_ERROR",
+          "paymentMethod must be cash, orange_money, wave, moov_money, mobile_money, or paytech.",
+          400
+        ),
         400,
         { businessId }
       );

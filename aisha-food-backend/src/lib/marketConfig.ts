@@ -2,7 +2,13 @@ import type { CityLean } from "@/lib/city";
 
 export type MarketCode = "DO" | "ML";
 export type MarketLanguage = "es" | "fr" | "bm" | "en";
-export type MarketPaymentMethod = "cash" | "mobile_money" | "paytech";
+export type MarketPaymentMethod =
+  | "cash"
+  | "orange_money"
+  | "wave"
+  | "moov_money"
+  | "mobile_money"
+  | "paytech";
 
 type CityLike = Partial<
   Pick<
@@ -60,8 +66,17 @@ const ML_MARKET: MarketConfig = {
   supportWhatsApp: ML_SUPPORT_WHATSAPP_PLACEHOLDER,
   supportWhatsAppIsPlaceholder: true,
   defaultTimezone: "Africa/Bamako",
-  paymentMethods: ["cash", "mobile_money", "paytech"],
+  paymentMethods: [
+    "cash",
+    "orange_money",
+    "wave",
+    "moov_money",
+    "mobile_money",
+    "paytech",
+  ],
 };
+
+const PAYMENT_METHOD_FALLBACK: MarketPaymentMethod[] = ["cash", "mobile_money", "paytech"];
 
 function normalize(value: unknown) {
   return String(value || "").trim();
@@ -131,7 +146,9 @@ function deriveSupportWhatsApp(city: CityLike | null | undefined, fallback: stri
 
 function derivePaymentMethods(city: CityLike | null | undefined, market: MarketConfig) {
   const raw = Array.isArray(city?.paymentMethods) ? city?.paymentMethods : [];
-  if (!raw.length) return [...market.paymentMethods];
+  if (!raw.length) {
+    return market.marketCode === "ML" ? [...market.paymentMethods] : [...PAYMENT_METHOD_FALLBACK];
+  }
 
   const methods = new Set<MarketPaymentMethod>();
   for (const value of raw) {
@@ -141,12 +158,24 @@ function derivePaymentMethods(city: CityLike | null | undefined, market: MarketC
       continue;
     }
     if (
+      normalized === "orange_money" ||
       normalized === "mobile_money" ||
       normalized === "orangemoney" ||
+      normalized === "moov_money" ||
       normalized === "moovmoney" ||
       normalized === "wave" ||
+      normalized === "wavemoney" ||
       normalized === "momo"
     ) {
+      if (normalized === "orange_money" || normalized === "orangemoney") {
+        methods.add("orange_money");
+      }
+      if (normalized === "wave" || normalized === "wavemoney") {
+        methods.add("wave");
+      }
+      if (normalized === "moov_money" || normalized === "moovmoney") {
+        methods.add("moov_money");
+      }
       methods.add("mobile_money");
       continue;
     }
@@ -156,6 +185,13 @@ function derivePaymentMethods(city: CityLike | null | undefined, market: MarketC
   }
 
   if (!methods.size) {
+    return market.marketCode === "ML" ? [...market.paymentMethods] : [...PAYMENT_METHOD_FALLBACK];
+  }
+
+  const hasDigitalMethods = Array.from(methods).some((method) =>
+    ["orange_money", "wave", "moov_money", "mobile_money", "paytech"].includes(method)
+  );
+  if (market.marketCode === "ML" && !hasDigitalMethods) {
     return [...market.paymentMethods];
   }
 

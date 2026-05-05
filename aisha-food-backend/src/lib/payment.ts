@@ -20,6 +20,16 @@ export function normalizePaymentMethod(value: unknown, fallback: PaymentMethod =
     .trim()
     .toLowerCase();
   if (normalized === "cash") return "cash";
+  if (
+    normalized === "orange_money" ||
+    normalized === "orangemoney" ||
+    normalized === "wave" ||
+    normalized === "wavemoney" ||
+    normalized === "moov_money" ||
+    normalized === "moovmoney"
+  ) {
+    return "paytech";
+  }
   if (normalized === "mobile_money" || normalized === "mobilemoney") return "mobile_money";
   if (normalized === "wallet") return "wallet";
   if (normalized === "card") return "card";
@@ -90,21 +100,34 @@ function normalizeCityPaymentMethod(value: unknown) {
 }
 
 export function citySupportsPaymentMethod(
-  city: Partial<Pick<CityLean, "paymentMethods">>,
+  city: Partial<Pick<CityLean, "paymentMethods" | "code" | "country">>,
   method: PaymentMethod
 ) {
   const methods = Array.isArray(city.paymentMethods) ? city.paymentMethods : [];
+  const cityCode = String(city.code || "").trim().toUpperCase();
+  const country = String(city.country || "").trim().toLowerCase();
+  const isBamakoMarket = cityCode === "BKO" || country === "mali";
   if (!methods.length) {
-    return method === "cash";
+    if (method === "cash") return true;
+    if (isBamakoMarket && (method === "mobile_money" || method === "paytech")) {
+      return true;
+    }
+    return false;
   }
 
   const normalized = methods.map(normalizeCityPaymentMethod);
+  const hasDigitalMethod = normalized.some((value) =>
+    ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney", "paytech"].includes(value)
+  );
   if (method === "cash") {
     return normalized.includes("cash");
   }
+  if (isBamakoMarket && !hasDigitalMethod && (method === "mobile_money" || method === "paytech")) {
+    return true;
+  }
   if (method === "mobile_money") {
     return normalized.some((value) =>
-      ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney"].includes(value)
+      ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney", "paytech"].includes(value)
     );
   }
   if (method === "wallet") {
@@ -114,7 +137,9 @@ export function citySupportsPaymentMethod(
     return normalized.includes("card");
   }
   if (method === "paytech") {
-    return normalized.includes("paytech");
+    return normalized.some((value) =>
+      ["paytech", "mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney"].includes(value)
+    );
   }
   return false;
 }

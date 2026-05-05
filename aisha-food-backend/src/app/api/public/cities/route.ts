@@ -18,8 +18,13 @@ export async function GET() {
     return ok({
       cities: activeCities.map((city) => {
         const market = getMarketConfig(city);
+        console.log("City payment methods:", city.paymentMethods);
         return {
           ...market,
+          paymentMethods:
+            Array.isArray(market.paymentMethods) && market.paymentMethods.length
+              ? market.paymentMethods
+              : ["cash", "mobile_money", "paytech"],
           _id: String(city._id),
           code: String(city.code || ""),
           slug: String(city.slug || ""),
