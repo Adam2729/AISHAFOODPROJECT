@@ -1,19 +1,29 @@
-import { useMemo, useState } from "react";
-import { Linking, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Linking, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect } from "expo-router";
 
 import OrangeButton from "@/src/components/OrangeButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
-import { type DeliveryModel } from "@/src/data/mockData";
 import { useMerchantApp } from "@/src/context/MerchantAppContext";
 import { colors } from "@/src/theme/colors";
 
-const deliveryOptions: DeliveryModel[] = ["platform_driver", "self_delivery", "both"];
-
 export default function ProfileScreen() {
-  const { authState, merchantProfile, updateProfile, logout, supportWhatsApp } = useMerchantApp();
+  const {
+    apiUrl,
+    authState,
+    logout,
+    merchantProfile,
+    supportWhatsApp,
+    updateProfile,
+  } = useMerchantApp();
   const [form, setForm] = useState(merchantProfile);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setForm(merchantProfile);
+  }, [merchantProfile]);
+
   const hasChanges = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(merchantProfile),
     [form, merchantProfile]
@@ -28,6 +38,21 @@ export default function ProfileScreen() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  async function onSave() {
+    try {
+      setSaving(true);
+      await updateProfile(form);
+      setSaving(false);
+      setSaved(true);
+    } catch (error: unknown) {
+      setSaving(false);
+      Alert.alert(
+        "Profile update",
+        (error as { message?: string })?.message || "Could not update the profile."
+      );
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ScreenHeader title="Profile" subtitle="Update store details and support settings." />
@@ -38,33 +63,27 @@ export default function ProfileScreen() {
         <InputField label="Phone" value={form.phone} onChangeText={(value) => updateField("phone", value)} />
         <InputField label="WhatsApp" value={form.whatsapp} onChangeText={(value) => updateField("whatsapp", value)} />
         <InputField label="Address" value={form.address} onChangeText={(value) => updateField("address", value)} />
+        <InputField label="Area" value={form.area || ""} onChangeText={(value) => updateField("area", value)} />
         <InputField label="City" value={form.city} onChangeText={(value) => updateField("city", value)} />
-        <InputField label="Opening hours" value={form.openingHours} onChangeText={(value) => updateField("openingHours", value)} />
 
-        <Text style={styles.inputLabel}>Delivery model</Text>
-        <View style={styles.optionRow}>
-          {deliveryOptions.map((option) => {
-            const active = form.deliveryModel === option;
-            return (
-              <OrangeButton
-                key={option}
-                label={option}
-                variant={active ? "primary" : "outline"}
-                onPress={() => updateField("deliveryModel", option)}
-                style={styles.optionButton}
-              />
-            );
-          })}
+        <View style={styles.infoBlock}>
+          <Text style={styles.inputLabel}>Delivery model</Text>
+          <View style={styles.valuePill}>
+            <Text style={styles.valuePillText}>{form.deliveryModel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoBlock}>
+          <Text style={styles.inputLabel}>API URL</Text>
+          <Text style={styles.apiValue}>{apiUrl || "EXPO_PUBLIC_API_URL is not configured."}</Text>
         </View>
 
         {saved ? <Text style={styles.successText}>Profile updated.</Text> : null}
 
         <OrangeButton
           label="Update profile"
-          onPress={() => {
-            updateProfile(form);
-            setSaved(true);
-          }}
+          onPress={onSave}
+          loading={saving}
           disabled={!hasChanges}
         />
         <OrangeButton
@@ -78,7 +97,7 @@ export default function ProfileScreen() {
             ).catch(() => null)
           }
         />
-        <OrangeButton label="Logout" variant="danger" onPress={logout} />
+        <OrangeButton label="Logout" variant="danger" onPress={() => logout()} />
       </View>
     </ScrollView>
   );
@@ -124,6 +143,9 @@ const styles = StyleSheet.create({
   inputBlock: {
     gap: 6,
   },
+  infoBlock: {
+    gap: 8,
+  },
   inputLabel: {
     color: colors.text,
     fontSize: 13,
@@ -139,14 +161,20 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  optionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 4,
+  valuePill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  optionButton: {
-    minHeight: 42,
+  valuePillText: {
+    color: colors.primaryDark,
+    fontWeight: "800",
+  },
+  apiValue: {
+    color: colors.muted,
+    lineHeight: 20,
   },
   successText: {
     color: colors.success,

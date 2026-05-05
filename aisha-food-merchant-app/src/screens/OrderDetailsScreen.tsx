@@ -1,5 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import OrangeButton from "@/src/components/OrangeButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
@@ -21,6 +22,7 @@ export default function OrderDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const { authState, getOrderById, updateOrderStatus } = useMerchantApp();
   const order = getOrderById(String(params.id || ""));
+  const [actionLoading, setActionLoading] = useState("");
 
   if (authState !== "approved") {
     return <Redirect href={authState === "pending" ? "/pending" : "/login"} />;
@@ -35,84 +37,149 @@ export default function OrderDetailsScreen() {
     );
   }
 
+  const currentOrder = order;
+  const isSelfDelivery =
+    currentOrder.deliveryMode === "self_delivery" || currentOrder.deliveryMode === "both";
+  const assignedDriverPhone = String(
+    (
+      currentOrder.raw as
+        | {
+            dispatch?: {
+              assignedDriverPhone?: string;
+            };
+          }
+        | undefined
+    )?.dispatch?.assignedDriverPhone || ""
+  ).trim();
+
   const actionButtons = [
-    order.status === "new"
-      ? { label: "Accept Order", action: () => updateOrderStatus(order.id, "accepted"), variant: "primary" as const }
+    currentOrder.status === "new"
+      ? { label: "Accept Order", nextStatus: "accepted", variant: "primary" as const }
       : null,
-    order.status === "new"
-      ? { label: "Reject Order", action: () => updateOrderStatus(order.id, "cancelled"), variant: "outline" as const }
+    currentOrder.status === "new"
+      ? { label: "Reject Order", nextStatus: "cancelled", variant: "outline" as const }
       : null,
-    order.status === "accepted"
-      ? { label: "Start Preparing", action: () => updateOrderStatus(order.id, "preparing"), variant: "primary" as const }
+    currentOrder.status === "accepted"
+      ? { label: "Start Preparing", nextStatus: "preparing", variant: "primary" as const }
       : null,
-    order.status === "preparing"
-      ? { label: "Mark Ready", action: () => updateOrderStatus(order.id, "ready"), variant: "primary" as const }
+    currentOrder.status === "preparing"
+      ? { label: "Mark Ready", nextStatus: "ready", variant: "primary" as const }
       : null,
-    order.status === "ready"
-      ? { label: "Call Driver", action: () => openTel(order.customerPhone), variant: "outline" as const }
+    currentOrder.status === "ready" && isSelfDelivery
+      ? {
+          label: "Mark Out For Delivery",
+          nextStatus: "out_for_delivery",
+          variant: "primary" as const,
+        }
       : null,
-    order.status === "ready"
-      ? { label: "Mark Out for delivery", action: () => updateOrderStatus(order.id, "out_for_delivery"), variant: "primary" as const }
+    currentOrder.status === "out_for_delivery" && isSelfDelivery
+      ? { label: "Mark Delivered", nextStatus: "delivered", variant: "primary" as const }
       : null,
-    order.status === "out_for_delivery"
-      ? { label: "Call Customer", action: () => openTel(order.customerPhone), variant: "outline" as const }
-      : null,
-    order.status === "out_for_delivery"
-      ? { label: "Complete Delivery", action: () => updateOrderStatus(order.id, "delivered"), variant: "primary" as const }
-      : null,
-    !["delivered", "cancelled"].includes(order.status)
-      ? { label: "Cancel Order", action: () => updateOrderStatus(order.id, "cancelled"), variant: "danger" as const }
+    !["delivered", "cancelled"].includes(currentOrder.status)
+      ? { label: "Cancel Order", nextStatus: "cancelled", variant: "danger" as const }
       : null,
   ].filter(Boolean) as {
     label: string;
-    action: () => void;
+    nextStatus: string;
     variant: "primary" | "outline" | "danger";
   }[];
+
+  async function onUpdateStatus(nextStatus: string, label: string) {
+    try {
+      setActionLoading(label);
+      await updateOrderStatus(currentOrder.id, nextStatus);
+      setActionLoading("");
+    } catch (error: unknown) {
+      setActionLoading("");
+      Alert.alert(
+        "Order update",
+        (error as { message?: string })?.message || "Could not update the order."
+      );
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ScreenHeader
-        title={order.orderNumber}
-        subtitle={order.customerName}
+        title={currentOrder.orderNumber}
+        subtitle={currentOrder.customerName}
         onBackPress={() => router.back()}
       />
 
       <View style={styles.card}>
         <View style={styles.badgeRow}>
-          <StatusBadge label={order.status.replace(/_/g, " ")} tone={toneForStatus(order.status) as never} />
-          <StatusBadge label={order.paymentStatus} tone={toneForStatus(order.paymentStatus) as never} />
+          <StatusBadge
+            label={currentOrder.status.replace(/_/g, " ")}
+            tone={toneForStatus(currentOrder.status) as never}
+          />
+          <StatusBadge
+            label={currentOrder.paymentStatus}
+            tone={toneForStatus(currentOrder.paymentStatus) as never}
+          />
         </View>
 
-        <InfoRow label="Customer phone" value={order.customerPhone} />
-        <InfoRow label="Delivery mode" value={order.deliveryMode} />
-        <InfoRow label="Payment method" value={order.paymentMethod} />
-        <InfoRow label="Delivery address" value={order.address} />
-        <InfoRow label="Delivery note" value={order.deliveryNote || "No note"} />
+        <InfoRow label="Customer phone" value={currentOrder.customerPhone || "Not available"} />
+        <InfoRow label="Delivery mode" value={currentOrder.deliveryMode} />
+        <InfoRow label="Payment method" value={currentOrder.paymentMethod} />
+        <InfoRow label="Payment status" value={currentOrder.paymentStatus} />
+        <InfoRow label="Delivery address" value={currentOrder.address || "Not available"} />
+        <InfoRow label="Delivery note" value={currentOrder.deliveryNote || "No note"} />
+        {currentOrder.driverName ? (
+          <InfoRow label="Driver" value={currentOrder.driverName} />
+        ) : null}
       </View>
+
+      {currentOrder.status === "ready" && !isSelfDelivery ? (
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Waiting for Driver Pickup</Text>
+          <Text style={styles.infoBody}>
+            This order is assigned to platform delivery. The merchant can accept, prepare and mark it ready. Driver handoff happens from here.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Items</Text>
-        {order.items.map((item) => (
+        {currentOrder.items.map((item) => (
           <View key={item.id} style={styles.itemRow}>
             <Text style={styles.itemName}>
               {item.name} x{item.quantity}
             </Text>
-            <Text style={styles.itemPrice}>{formatCurrency(item.quantity * item.price)}</Text>
+            <Text style={styles.itemPrice}>
+              {formatCurrency(item.quantity * item.price, currentOrder.currencyCode)}
+            </Text>
           </View>
         ))}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{formatCurrency(order.total)}</Text>
+          <Text style={styles.totalValue}>
+            {formatCurrency(currentOrder.total, currentOrder.currencyCode)}
+          </Text>
         </View>
       </View>
 
       <View style={styles.actionsCard}>
+        <OrangeButton
+          label="Call Customer"
+          variant="outline"
+          onPress={() => openTel(currentOrder.customerPhone)}
+          disabled={!currentOrder.customerPhone}
+        />
+        {currentOrder.driverName ? (
+          <OrangeButton
+            label="Call Driver"
+            variant="outline"
+            onPress={() => openTel(assignedDriverPhone)}
+            disabled={!assignedDriverPhone}
+          />
+        ) : null}
         {actionButtons.map((button) => (
           <OrangeButton
             key={button.label}
             label={button.label}
-            onPress={button.action}
+            onPress={() => onUpdateStatus(button.nextStatus, button.label)}
             variant={button.variant}
+            loading={actionLoading === button.label}
           />
         ))}
       </View>
@@ -130,6 +197,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function openTel(phone: string) {
+  if (!String(phone || "").trim()) return;
   Linking.openURL(`tel:${String(phone || "").trim()}`).catch(() => null);
 }
 
@@ -160,6 +228,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
+  },
+  infoCard: {
+    backgroundColor: colors.warningSoft,
+    borderRadius: 22,
+    padding: 16,
+    gap: 8,
+  },
+  infoTitle: {
+    color: colors.primaryDark,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  infoBody: {
+    color: colors.text,
+    lineHeight: 20,
   },
   badgeRow: {
     flexDirection: "row",

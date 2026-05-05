@@ -1,6 +1,17 @@
-export function formatCurrency(amount: number) {
+export function formatCurrency(amount: number, currencyCode: string = "XOF") {
   const value = Number(amount || 0);
-  return `${Math.round(value).toLocaleString("en-US")} FCFA`;
+  const currency = String(currencyCode || "XOF").trim().toUpperCase();
+  const normalizedCurrency = currency === "DOP" || currency === "GBP" ? currency : "XOF";
+  const locale =
+    normalizedCurrency === "DOP" ? "es-DO" : normalizedCurrency === "GBP" ? "en-GB" : "fr-ML";
+  const fractionDigits = normalizedCurrency === "XOF" ? 0 : 2;
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: normalizedCurrency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
 }
 
 export function formatTimeLabel(value: string) {

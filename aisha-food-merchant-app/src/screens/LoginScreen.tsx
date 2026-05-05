@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 
 import Logo from "@/src/components/Logo";
 import OrangeButton from "@/src/components/OrangeButton";
-import { approvedMerchantCredentials } from "@/src/data/mockData";
 import { useMerchantApp } from "@/src/context/MerchantAppContext";
 import { colors } from "@/src/theme/colors";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { authState, login } = useMerchantApp();
+  const { authState, apiUrl, login } = useMerchantApp();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,12 +27,14 @@ export default function LoginScreen() {
     return <Redirect href="/pending" />;
   }
 
-  function onLogin() {
+  async function onLogin() {
     setLoading(true);
-    const result = login(identifier, password);
+    const result = await login(identifier, password);
     setLoading(false);
     if (!result.ok) {
-      setError(result.message || "Login failed.");
+      const message = result.message || "Login failed.";
+      setError(message);
+      Alert.alert("Login failed", message);
       return;
     }
     router.replace(result.pending ? "/pending" : "/(tabs)");
@@ -45,7 +46,7 @@ export default function LoginScreen() {
         <Logo width={150} height={150} />
       </View>
       <Text style={styles.title}>OranjeEats Merchant</Text>
-      <Text style={styles.subtitle}>Sign in with your approved restaurant account.</Text>
+      <Text style={styles.subtitle}>Sign in with your approved merchant account.</Text>
 
       <View style={styles.formCard}>
         <Text style={styles.inputLabel}>Email or phone</Text>
@@ -81,10 +82,11 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.demoCard}>
-        <Text style={styles.demoTitle}>Mock approved account</Text>
-        <Text style={styles.demoText}>{approvedMerchantCredentials.email}</Text>
-        <Text style={styles.demoText}>{approvedMerchantCredentials.phone}</Text>
-        <Text style={styles.demoText}>{approvedMerchantCredentials.password}</Text>
+        <Text style={styles.demoTitle}>Server</Text>
+        <Text style={styles.demoText}>{apiUrl || "EXPO_PUBLIC_API_URL is not configured."}</Text>
+        <Text style={styles.demoHint}>
+          Use your approved merchant email or phone and password. Mobile testing must use your local IP, not localhost.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -169,5 +171,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
     fontWeight: "700",
+  },
+  demoHint: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

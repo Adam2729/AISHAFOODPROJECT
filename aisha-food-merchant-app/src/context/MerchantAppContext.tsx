@@ -1,48 +1,75 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import {
-  approvedMerchantCredentials,
+  API_URL,
+  apiRequest,
+  getApiUrl,
+} from "@/src/lib/api";
+import {
+  clearSession,
+  getMerchant,
+  getToken,
+  saveMerchant,
+  saveToken,
+} from "@/src/lib/session";
+import { useMerchantOrders } from "@/src/hooks/useMerchantOrders";
+import {
+  type DeliveryModel,
+  type MenuItem,
   type MerchantApplicationDraft,
   type MerchantOrder,
   type MerchantProfile,
   mockMenuItems,
   mockMerchantProfile,
-  mockOrders,
-  type OrderStatus,
   SUPPORT_WHATSAPP,
-  type MenuItem,
 } from "@/src/data/mockData";
 
 type AuthState = "loggedOut" | "pending" | "approved";
-
 type SignupInput = Omit<MerchantApplicationDraft, "id">;
+
+type LoginResult = {
+  ok: boolean;
+  pending?: boolean;
+  message?: string;
+};
+
+type DashboardStats = {
+  newOrders: number;
+  preparing: number;
+  ready: number;
+  activeOrders: number;
+  todaySales: number;
+};
 
 type MerchantAppContextValue = {
   booting: boolean;
   authState: AuthState;
+  token: string;
+  apiUrl: string;
   merchantProfile: MerchantProfile;
   pendingApplication: MerchantApplicationDraft | null;
-  orders: MerchantOrder[];
   menuItems: MenuItem[];
-  storeOpen: boolean;
   supportWhatsApp: string;
-  paymentsSnapshot: {
-    todaySales: number;
-    weeklySales: number;
-    deliveryFees: number;
-    commission: number;
-    merchantNet: number;
-    settlementStatus: string;
-  };
-  login: (identifier: string, password: string) => { ok: boolean; pending?: boolean; message?: string };
-  logout: () => void;
-  submitApplication: (input: SignupInput) => MerchantApplicationDraft;
-  resetPendingApplication: () => void;
-  toggleStoreOpen: () => void;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  toggleMenuAvailability: (itemId: string) => void;
-  updateProfile: (input: Partial<MerchantProfile>) => void;
+  storeOpen: boolean;
+  orders: MerchantOrder[];
+  ordersLoading: boolean;
+  ordersRefreshing: boolean;
+  ordersError: string;
+  usingDemoData: boolean;
+  newOrder: MerchantOrder | null;
+  dashboardStats: DashboardStats;
+  refreshOrders: (options?: { silent?: boolean }) => Promise<MerchantOrder[]>;
+  acceptOrder: (orderId: string) => Promise<unknown>;
+  rejectOrder: (orderId: string) => Promise<unknown>;
+  updateOrderStatus: (orderId: string, status: string) => Promise<unknown>;
   getOrderById: (orderId: string) => MerchantOrder | undefined;
+  login: (identifier: string, password: string) => Promise<LoginResult>;
+  logout: () => Promise<void>;
+  submitApplication: (input: SignupInput) => Promise<MerchantApplicationDraft>;
+  resetPendingApplication: () => void;
+  toggleStoreOpen: () => Promise<void>;
+  toggleMenuAvailability: (itemId: string) => void;
+  updateProfile: (input: Partial<MerchantProfile>) => Promise<void>;
 };
 
 const MerchantAppContext = createContext<MerchantAppContextValue | null>(null);
@@ -51,64 +78,226 @@ function matchesCredential(identifier: string, candidate: string) {
   return String(identifier || "").trim().toLowerCase() === String(candidate || "").trim().toLowerCase();
 }
 
-function calculatePaymentsSnapshot(orders: MerchantOrder[]) {
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const chargeable = orders.filter((order) => order.status !== "cancelled");
-  const todayOrders = chargeable.filter((order) => String(order.createdAt || "").startsWith(todayKey));
-  const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const weeklySales = chargeable.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const deliveryFees = chargeable.reduce((sum, order) => sum + Number(order.deliveryFee || 0), 0);
-  const commission = Math.round(weeklySales * 0.08);
-  const merchantNet = weeklySales - commission;
+function normalizeDeliveryModel(value: unknown, fallback: DeliveryModel = "self_delivery"): DeliveryModel {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "platform_driver") return "platform_driver";
+  if (normalized === "both") return "both";
+  if (normalized === "self_delivery" || normalized === "own_driver") return "self_delivery";
+  return fallback;
+}
+
+function normalizeCurrencyCode(value: unknown) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized === "DOP") return "DOP";
+  if (normalized === "GBP") return "GBP";
+  return "XOF";
+}
+
+function buildProfile(
+  settingsBusiness: Record<string, unknown> | null | undefined,
+  contextBusiness: Record<string, unknown> | null | undefined,
+  fallbackProfile?: MerchantProfile | null
+): MerchantProfile {
+  const fallback = fallbackProfile || mockMerchantProfile;
+  const settingsHours = (settingsBusiness?.hours || null) as Record<string, unknown> | null;
 
   return {
-    todaySales,
-    weeklySales,
-    deliveryFees,
-    commission,
-    merchantNet,
-    settlementStatus: "Next settlement scheduled for tomorrow at 10:00",
+    id: String(settingsBusiness?.id || contextBusiness?.id || fallback.id || ""),
+    restaurantName: String(settingsBusiness?.name || contextBusiness?.name || fallback.restaurantName || ""),
+    ownerName: String(settingsBusiness?.ownerName || contextBusiness?.ownerName || fallback.ownerName || ""),
+    email: String(settingsBusiness?.email || contextBusiness?.email || fallback.email || ""),
+    phone: String(settingsBusiness?.phone || contextBusiness?.phone || fallback.phone || ""),
+    whatsapp: String(settingsBusiness?.whatsapp || contextBusiness?.whatsapp || fallback.whatsapp || ""),
+    address: String(settingsBusiness?.address || fallback.address || ""),
+    area: String(settingsBusiness?.area || fallback.area || ""),
+    city: String(contextBusiness?.cityName || fallback.city || ""),
+    cuisineType: String(settingsBusiness?.cuisineType || fallback.cuisineType || ""),
+    openingHours: String(
+      settingsHours && typeof settingsHours.weekly === "object"
+        ? formatHours(settingsHours)
+        : settingsBusiness?.openingHoursText || fallback.openingHours || ""
+    ),
+    deliveryModel: normalizeDeliveryModel(
+      settingsBusiness?.deliveryType || contextBusiness?.deliveryType || fallback.deliveryModel,
+      fallback.deliveryModel
+    ),
+    approved: true,
+    currencyCode: normalizeCurrencyCode(contextBusiness?.currencyCode || fallback.currencyCode),
+    supportWhatsApp: String(contextBusiness?.supportWhatsApp || fallback.supportWhatsApp || SUPPORT_WHATSAPP),
+    portalStatus: String(contextBusiness?.portalStatus || fallback.portalStatus || "online"),
+    isManuallyPaused: Boolean(
+      settingsBusiness?.isManuallyPaused ?? contextBusiness?.isManuallyPaused ?? fallback.isManuallyPaused
+    ),
+  };
+}
+
+function formatHours(hours: Record<string, unknown>) {
+  const timezone = String(hours?.timezone || "").trim();
+  if (!hours?.weekly || typeof hours.weekly !== "object") {
+    return timezone || "";
+  }
+
+  const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const firstOpenDay = dayKeys.find((day) => {
+    const row = (hours.weekly as Record<string, { closed?: boolean }>)[day];
+    return row && !row.closed;
+  });
+
+  if (!firstOpenDay) {
+    return timezone ? `Closed all week (${timezone})` : "Closed all week";
+  }
+
+  const sample = (hours.weekly as Record<string, { open?: string; close?: string }>)[firstOpenDay];
+  const range = [String(sample?.open || "").trim(), String(sample?.close || "").trim()].filter(Boolean).join(" - ");
+  return timezone && range ? `${range} (${timezone})` : range || timezone;
+}
+
+function buildPendingApplication(
+  input: SignupInput,
+  applicationId: string
+): MerchantApplicationDraft {
+  return {
+    id: applicationId,
+    ...input,
   };
 }
 
 export function MerchantAppProvider({ children }: { children: React.ReactNode }) {
   const [booting, setBooting] = useState(true);
   const [authState, setAuthState] = useState<AuthState>("loggedOut");
-  const [pendingApplication, setPendingApplication] = useState<MerchantApplicationDraft | null>(null);
+  const [token, setToken] = useState("");
   const [merchantProfile, setMerchantProfile] = useState<MerchantProfile>(mockMerchantProfile);
-  const [orders, setOrders] = useState<MerchantOrder[]>(mockOrders);
+  const [pendingApplication, setPendingApplication] = useState<MerchantApplicationDraft | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(mockMenuItems);
-  const [storeOpen, setStoreOpen] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setBooting(false), 1400);
-    return () => clearTimeout(timer);
+  const handleUnauthorized = useCallback(async () => {
+    await clearSession();
+    setToken("");
+    setAuthState("loggedOut");
   }, []);
 
-  const paymentsSnapshot = useMemo(() => calculatePaymentsSnapshot(orders), [orders]);
+  const ordersState = useMerchantOrders({
+    token,
+    enabled: authState === "approved",
+    onUnauthorized: handleUnauthorized,
+  });
 
-  const value = useMemo<MerchantAppContextValue>(
+  const loadMerchantProfileFromApi = useCallback(async (
+    sessionToken: string,
+    fallbackProfile?: MerchantProfile | null
+  ) => {
+    const [settingsResult, contextResult] = await Promise.allSettled([
+      apiRequest("/api/merchant/business/settings", "GET", undefined, sessionToken),
+      apiRequest("/api/merchant/context", "GET", undefined, sessionToken),
+    ]);
+
+    if (settingsResult.status === "rejected" && contextResult.status === "rejected") {
+      throw settingsResult.reason || contextResult.reason;
+    }
+
+    const settingsBusiness =
+      settingsResult.status === "fulfilled" ? settingsResult.value?.business : null;
+    const contextBusiness =
+      contextResult.status === "fulfilled" ? contextResult.value?.business : null;
+
+    return buildProfile(settingsBusiness, contextBusiness, fallbackProfile);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      try {
+        const [storedToken, storedMerchant] = await Promise.all([getToken(), getMerchant()]);
+        if (cancelled) return;
+
+        if (!storedToken) {
+          setBooting(false);
+          return;
+        }
+
+        const fallbackProfile =
+          storedMerchant && typeof storedMerchant === "object"
+            ? buildProfile(storedMerchant, storedMerchant, storedMerchant as MerchantProfile)
+            : null;
+
+        try {
+          const liveProfile = await loadMerchantProfileFromApi(storedToken, fallbackProfile);
+          if (cancelled) return;
+          setToken(storedToken);
+          setMerchantProfile(liveProfile);
+          setAuthState("approved");
+          await saveMerchant(liveProfile);
+        } catch (error: unknown) {
+          if (cancelled) return;
+          if ((error as { status?: number })?.status === 401) {
+            await clearSession();
+            setToken("");
+            setAuthState("loggedOut");
+          } else if (fallbackProfile) {
+            setToken(storedToken);
+            setMerchantProfile(fallbackProfile);
+            setAuthState("approved");
+          } else {
+            setToken("");
+            setAuthState("loggedOut");
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setBooting(false);
+        }
+      }
+    }
+
+    bootstrap().catch(() => {
+      if (!cancelled) {
+        setBooting(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadMerchantProfileFromApi]);
+
+  const contextValue = useMemo<MerchantAppContextValue>(
     () => ({
       booting,
       authState,
+      token,
+      apiUrl: (() => {
+        try {
+          return getApiUrl();
+        } catch {
+          return API_URL || "";
+        }
+      })(),
       merchantProfile,
       pendingApplication,
-      orders,
       menuItems,
-      storeOpen,
-      supportWhatsApp: SUPPORT_WHATSAPP,
-      paymentsSnapshot,
-      login(identifier, password) {
+      supportWhatsApp: merchantProfile.supportWhatsApp || SUPPORT_WHATSAPP,
+      storeOpen: !merchantProfile.isManuallyPaused,
+      orders: ordersState.orders,
+      ordersLoading: ordersState.loading,
+      ordersRefreshing: ordersState.refreshing,
+      ordersError: ordersState.error,
+      usingDemoData: ordersState.usingDemoData,
+      newOrder: ordersState.newOrder,
+      dashboardStats: ordersState.dashboardStats,
+      refreshOrders: ordersState.refreshOrders,
+      acceptOrder: ordersState.acceptOrder,
+      rejectOrder: ordersState.rejectOrder,
+      updateOrderStatus: ordersState.updateOrderStatus,
+      getOrderById: ordersState.getOrderById,
+      async login(identifier, password) {
         const normalizedIdentifier = String(identifier || "").trim();
-        const normalizedPassword = String(password || "");
-
-        if (
-          normalizedPassword === approvedMerchantCredentials.password &&
-          (matchesCredential(normalizedIdentifier, approvedMerchantCredentials.email) ||
-            matchesCredential(normalizedIdentifier, approvedMerchantCredentials.phone))
-        ) {
-          setAuthState("approved");
-          return { ok: true };
+        const normalizedPassword = String(password || "").trim();
+        if (!normalizedIdentifier || !normalizedPassword) {
+          return {
+            ok: false,
+            message: "Enter your email or phone and password.",
+          };
         }
 
         if (
@@ -121,19 +310,85 @@ export function MerchantAppProvider({ children }: { children: React.ReactNode })
           return { ok: true, pending: true };
         }
 
-        return {
-          ok: false,
-          message: "Invalid credentials. Use the approved mock account or submit an application first.",
-        };
+        try {
+          const isEmail = normalizedIdentifier.includes("@");
+          const response = await apiRequest("/api/merchant/auth/login", "POST", {
+            identifier: normalizedIdentifier,
+            email: isEmail ? normalizedIdentifier : undefined,
+            phone: !isEmail ? normalizedIdentifier : undefined,
+            password: normalizedPassword,
+          });
+
+          const nextToken = String(
+            response?.token || response?.accessToken || response?.merchantToken || ""
+          ).trim();
+          if (!nextToken) {
+            return {
+              ok: false,
+              message: "Login succeeded but no merchant session token was returned.",
+            };
+          }
+
+          const seed = response?.merchant || response?.business || response?.user || null;
+          const fallbackProfile = seed
+            ? buildProfile(seed, seed, {
+                ...mockMerchantProfile,
+                restaurantName: String(seed?.name || mockMerchantProfile.restaurantName),
+                email: String(seed?.email || mockMerchantProfile.email),
+                phone: String(seed?.phone || mockMerchantProfile.phone),
+                deliveryModel: normalizeDeliveryModel(seed?.deliveryType, mockMerchantProfile.deliveryModel),
+              })
+            : merchantProfile;
+
+          const liveProfile = await loadMerchantProfileFromApi(nextToken, fallbackProfile);
+
+          await saveToken(nextToken);
+          await saveMerchant(liveProfile);
+
+          setToken(nextToken);
+          setMerchantProfile(liveProfile);
+          setAuthState("approved");
+
+          return { ok: true };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            message:
+              (error as { message?: string })?.message ||
+              "Cannot sign in right now. Please try again.",
+          };
+        }
       },
-      logout() {
+      async logout() {
+        if (token) {
+          apiRequest("/api/merchant/auth/logout", "POST", undefined, token).catch(() => null);
+        }
+        await clearSession();
+        setToken("");
+        setPendingApplication(null);
         setAuthState("loggedOut");
+        setMerchantProfile(mockMerchantProfile);
       },
-      submitApplication(input) {
-        const application: MerchantApplicationDraft = {
-          id: `APP-${Date.now().toString().slice(-6)}`,
-          ...input,
+      async submitApplication(input) {
+        const payload = {
+          merchantType: "restaurant",
+          deliveryModePreference: input.deliveryModel,
+          deliveryType: input.deliveryModel === "platform_driver" ? "platform_driver" : "own_driver",
+          businessName: input.restaurantName,
+          ownerName: input.ownerName,
+          phone: input.phone,
+          email: input.email,
+          password: input.password,
+          whatsapp: input.whatsapp,
+          cityName: input.city,
+          address: input.address,
+          cuisineType: input.cuisineType,
+          openingHoursText: input.openingHours,
         };
+
+        const response = await apiRequest("/api/public/merchant-applications", "POST", payload);
+        const applicationId = String(response?.applicationId || response?.id || "").trim();
+        const application = buildPendingApplication(input, applicationId || `APP-${Date.now()}`);
         setPendingApplication(application);
         setAuthState("pending");
         return application;
@@ -142,13 +397,31 @@ export function MerchantAppProvider({ children }: { children: React.ReactNode })
         setPendingApplication(null);
         setAuthState("loggedOut");
       },
-      toggleStoreOpen() {
-        setStoreOpen((current) => !current);
-      },
-      updateOrderStatus(orderId, status) {
-        setOrders((current) =>
-          current.map((order) => (order.id === orderId ? { ...order, status } : order))
+      async toggleStoreOpen() {
+        const nextPaused = !merchantProfile.isManuallyPaused;
+        if (!token) {
+          setMerchantProfile((current) => ({
+            ...current,
+            isManuallyPaused: nextPaused,
+            portalStatus: nextPaused ? "offline" : "online",
+          }));
+          return;
+        }
+
+        const response = await apiRequest(
+          "/api/merchant/business/settings",
+          "PATCH",
+          { isManuallyPaused: nextPaused },
+          token
         );
+
+        const nextProfile = buildProfile(response?.business, null, {
+          ...merchantProfile,
+          isManuallyPaused: nextPaused,
+          portalStatus: nextPaused ? "offline" : "online",
+        });
+        setMerchantProfile(nextProfile);
+        await saveMerchant(nextProfile);
       },
       toggleMenuAvailability(itemId) {
         setMenuItems((current) =>
@@ -157,17 +430,43 @@ export function MerchantAppProvider({ children }: { children: React.ReactNode })
           )
         );
       },
-      updateProfile(input) {
-        setMerchantProfile((current) => ({ ...current, ...input }));
-      },
-      getOrderById(orderId) {
-        return orders.find((order) => order.id === orderId);
+      async updateProfile(input) {
+        const nextLocalProfile = { ...merchantProfile, ...input };
+        if (!token) {
+          setMerchantProfile(nextLocalProfile);
+          await saveMerchant(nextLocalProfile);
+          return;
+        }
+
+        const body: Record<string, unknown> = {
+          name: nextLocalProfile.restaurantName,
+          ownerName: nextLocalProfile.ownerName,
+          email: nextLocalProfile.email,
+          phone: nextLocalProfile.phone,
+          whatsapp: nextLocalProfile.whatsapp,
+          address: nextLocalProfile.address,
+          area: nextLocalProfile.area || "",
+        };
+        if (nextLocalProfile.deliveryModel !== "both") {
+          body.deliveryType =
+            nextLocalProfile.deliveryModel === "platform_driver" ? "platform_driver" : "own_driver";
+        }
+
+        const response = await apiRequest(
+          "/api/merchant/business/settings",
+          "PATCH",
+          body,
+          token
+        );
+        const liveProfile = buildProfile(response?.business, { ...merchantProfile, ...nextLocalProfile }, nextLocalProfile);
+        setMerchantProfile(liveProfile);
+        await saveMerchant(liveProfile);
       },
     }),
-    [authState, booting, menuItems, merchantProfile, orders, paymentsSnapshot, pendingApplication, storeOpen]
+    [authState, booting, loadMerchantProfileFromApi, menuItems, merchantProfile, ordersState, pendingApplication, token]
   );
 
-  return <MerchantAppContext.Provider value={value}>{children}</MerchantAppContext.Provider>;
+  return <MerchantAppContext.Provider value={contextValue}>{children}</MerchantAppContext.Provider>;
 }
 
 export function useMerchantApp() {

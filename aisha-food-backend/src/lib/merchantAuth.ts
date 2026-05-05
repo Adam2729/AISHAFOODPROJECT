@@ -36,6 +36,13 @@ function parseCookie(raw: string, name: string) {
   return "";
 }
 
+function parseBearerToken(raw: string) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || "";
+}
+
 export function verifyMerchantToken(token: string): SessionPayload | null {
   if (!token || !token.includes(".")) return null;
   const [payloadPart, sigPart] = token.split(".");
@@ -54,8 +61,9 @@ export function verifyMerchantToken(token: string): SessionPayload | null {
 }
 
 export function getMerchantSessionFromRequest(req: Request) {
+  const bearerToken = parseBearerToken(req.headers.get("authorization") || "");
   const cookie = req.headers.get("cookie") || "";
-  const token = parseCookie(cookie, COOKIE_NAME);
+  const token = bearerToken || parseCookie(cookie, COOKIE_NAME);
   return verifyMerchantToken(token);
 }
 

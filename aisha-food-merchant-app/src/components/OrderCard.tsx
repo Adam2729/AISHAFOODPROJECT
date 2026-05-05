@@ -77,7 +77,9 @@ export default function OrderCard({ order, onPress, featured = false, children }
             <Text style={styles.itemText}>
               {item.name} x{item.quantity}
             </Text>
-            <Text style={styles.itemPrice}>{formatCurrency(item.quantity * item.price)}</Text>
+            <Text style={styles.itemPrice}>
+              {formatCurrency(item.quantity * item.price, order.currencyCode)}
+            </Text>
           </View>
         ))}
       </View>
@@ -86,7 +88,7 @@ export default function OrderCard({ order, onPress, featured = false, children }
       {order.deliveryNote ? <Text style={styles.noteText}>{order.deliveryNote}</Text> : null}
 
       <View style={styles.footerRow}>
-        <Text style={styles.totalText}>{formatCurrency(order.total)}</Text>
+        <Text style={styles.totalText}>{formatCurrency(order.total, order.currencyCode)}</Text>
         {children}
       </View>
     </View>

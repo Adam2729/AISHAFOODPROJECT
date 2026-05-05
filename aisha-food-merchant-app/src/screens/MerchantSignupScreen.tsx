@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 
 import BrandLogo from "@/src/components/BrandLogo";
@@ -51,15 +51,27 @@ export default function MerchantSignupScreen() {
     setError("");
   }
 
-  function onSubmit() {
+  async function onSubmit() {
     if (!canSubmit) {
       setError("Complete all required fields before submitting.");
       return;
     }
     setLoading(true);
-    submitApplication(form);
-    setLoading(false);
-    router.replace("/pending");
+    try {
+      await submitApplication(form);
+      setLoading(false);
+      Alert.alert(
+        "Application submitted",
+        "Application submitted. You can sign in after admin approval."
+      );
+      router.replace("/pending");
+    } catch (submitError: unknown) {
+      const message =
+        (submitError as { message?: string })?.message || "Could not submit the application.";
+      setLoading(false);
+      setError(message);
+      Alert.alert("Submission failed", message);
+    }
   }
 
   return (

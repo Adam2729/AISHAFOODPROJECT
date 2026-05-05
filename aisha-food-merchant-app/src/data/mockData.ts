@@ -41,20 +41,28 @@ export type MerchantOrder = {
   createdAt: string;
   driverName?: string;
   deliveryFee?: number;
+  currencyCode?: "XOF" | "DOP" | "GBP";
+  raw?: Record<string, unknown>;
 };
 
 export type MerchantProfile = {
+  id?: string;
   restaurantName: string;
   ownerName: string;
   email: string;
   phone: string;
   whatsapp: string;
   address: string;
+  area?: string;
   city: string;
   cuisineType: string;
   openingHours: string;
   deliveryModel: DeliveryModel;
   approved: boolean;
+  currencyCode?: "XOF" | "DOP" | "GBP";
+  supportWhatsApp?: string;
+  portalStatus?: string;
+  isManuallyPaused?: boolean;
 };
 
 export type MerchantApplicationDraft = {
@@ -92,6 +100,10 @@ export const mockMerchantProfile: MerchantProfile = {
   openingHours: "10:00 - 23:00",
   deliveryModel: "both",
   approved: true,
+  currencyCode: "XOF",
+  supportWhatsApp: SUPPORT_WHATSAPP,
+  portalStatus: "online",
+  isManuallyPaused: false,
 };
 
 export const mockOrders: MerchantOrder[] = [

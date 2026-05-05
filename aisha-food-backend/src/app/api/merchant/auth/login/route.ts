@@ -11,6 +11,7 @@ import { runSubscriptionStatusJob } from "@/lib/subscriptionJob";
 type LoginBody = {
   identifier?: string;
   email?: string;
+  phone?: string;
   businessId?: string;
   pin?: string;
   password?: string;
@@ -19,7 +20,9 @@ type LoginBody = {
 export async function POST(req: Request) {
   try {
     const body = await readJson<LoginBody>(req);
-    const identifier = String(body.identifier || body.email || body.businessId || "").trim();
+    const identifier = String(
+      body.identifier || body.email || body.phone || body.businessId || ""
+    ).trim();
     const provided = String(body.pin || body.password || "").trim();
     if (!identifier || !provided) {
       return fail("VALIDATION_ERROR", "identifier and pin/password are required.");
@@ -29,7 +32,9 @@ export async function POST(req: Request) {
     await runSubscriptionStatusJob();
     const business = /^[a-f\d]{24}$/i.test(identifier)
       ? await Business.findById(identifier)
-      : await Business.findOne({ email: identifier.toLowerCase() });
+      : await Business.findOne({
+          $or: [{ email: identifier.toLowerCase() }, { phone: identifier }],
+        });
     if (!business) return fail("UNAUTHORIZED", "Invalid credentials.", 401);
 
     const isValid = verifySecret(provided, String((business as any).auth?.pinHash || ""));
@@ -51,10 +56,16 @@ export async function POST(req: Request) {
     });
 
     return ok({
+      token,
+      accessToken: token,
+      merchantToken: token,
       business: {
         id: String((business as any)._id),
         name: (business as any).name,
         type: (business as any).type,
+        email: String((business as any).email || ""),
+        phone: String((business as any).phone || ""),
+        deliveryType: String((business as any).deliveryType || ""),
       },
       mustChangePin: Boolean((business as any).auth?.mustChange),
     });
