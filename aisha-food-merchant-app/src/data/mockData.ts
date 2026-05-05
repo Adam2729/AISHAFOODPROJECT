@@ -16,6 +16,11 @@ export type MenuItem = {
   category: string;
   price: number;
   available: boolean;
+  description?: string;
+  imageUrl?: string;
+  currencyCode?: "XOF" | "DOP" | "GBP";
+  unavailableReason?: string;
+  raw?: Record<string, unknown>;
 };
 
 export type OrderLine = {
@@ -231,9 +236,50 @@ export const mockOrders: MerchantOrder[] = [
 ];
 
 export const mockMenuItems: MenuItem[] = [
-  { id: "menu-1", name: "Poulet braise", category: "Grillades", price: 3500, available: true },
-  { id: "menu-2", name: "Cheeseburger", category: "Fast Food", price: 2800, available: true },
-  { id: "menu-3", name: "Pizza pepperoni", category: "Pizzas", price: 6500, available: true },
-  { id: "menu-4", name: "Jus de gingembre", category: "Boissons", price: 900, available: false },
-  { id: "menu-5", name: "Frites maison", category: "Accompagnements", price: 1200, available: true },
+  {
+    id: "menu-1",
+    name: "Poulet braise",
+    category: "Grillades",
+    price: 3500,
+    available: true,
+    description: "Half grilled chicken with onion sauce and spicy mayo.",
+    currencyCode: "XOF",
+  },
+  {
+    id: "menu-2",
+    name: "Cheeseburger",
+    category: "Fast Food",
+    price: 2800,
+    available: true,
+    description: "Beef burger, cheese, lettuce and house sauce.",
+    currencyCode: "XOF",
+  },
+  {
+    id: "menu-3",
+    name: "Pizza pepperoni",
+    category: "Pizzas",
+    price: 6500,
+    available: true,
+    description: "Stone-baked pepperoni pizza with extra mozzarella.",
+    currencyCode: "XOF",
+  },
+  {
+    id: "menu-4",
+    name: "Jus de gingembre",
+    category: "Boissons",
+    price: 900,
+    available: false,
+    description: "Fresh ginger juice served chilled.",
+    currencyCode: "XOF",
+    unavailableReason: "out_of_stock",
+  },
+  {
+    id: "menu-5",
+    name: "Frites maison",
+    category: "Accompagnements",
+    price: 1200,
+    available: true,
+    description: "Crisp house fries with light seasoning.",
+    currencyCode: "XOF",
+  },
 ];
