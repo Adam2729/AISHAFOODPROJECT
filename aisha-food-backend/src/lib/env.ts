@@ -46,6 +46,9 @@ const schema = z.object({
   PAYTECH_WEBHOOK_SECRET: z.string().optional(),
   PAYTECH_SUCCESS_URL: z.string().optional(),
   PAYTECH_CANCEL_URL: z.string().optional(),
+  WHATSAPP_PROVIDER: z.string().optional(),
+  WHATSAPP_API_TOKEN: z.string().optional(),
+  WHATSAPP_FROM_NUMBER: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
@@ -95,6 +98,9 @@ const parsed = schema.safeParse({
   PAYTECH_WEBHOOK_SECRET: process.env.PAYTECH_WEBHOOK_SECRET,
   PAYTECH_SUCCESS_URL: process.env.PAYTECH_SUCCESS_URL,
   PAYTECH_CANCEL_URL: process.env.PAYTECH_CANCEL_URL,
+  WHATSAPP_PROVIDER: process.env.WHATSAPP_PROVIDER,
+  WHATSAPP_API_TOKEN: process.env.WHATSAPP_API_TOKEN,
+  WHATSAPP_FROM_NUMBER: process.env.WHATSAPP_FROM_NUMBER,
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_USER: process.env.SMTP_USER,
@@ -238,6 +244,9 @@ export const ENV_PAYTECH_BASE_URL =
 export const ENV_PAYTECH_WEBHOOK_SECRET = normalizeText(env.PAYTECH_WEBHOOK_SECRET) || null;
 export const ENV_PAYTECH_SUCCESS_URL = normalizeText(env.PAYTECH_SUCCESS_URL) || null;
 export const ENV_PAYTECH_CANCEL_URL = normalizeText(env.PAYTECH_CANCEL_URL) || null;
+export const ENV_WHATSAPP_PROVIDER = normalizeText(env.WHATSAPP_PROVIDER) || null;
+export const ENV_WHATSAPP_API_TOKEN = normalizeText(env.WHATSAPP_API_TOKEN) || null;
+export const ENV_WHATSAPP_FROM_NUMBER = normalizeText(env.WHATSAPP_FROM_NUMBER) || null;
 export const ENV_SMTP_HOST = normalizeText(env.SMTP_HOST) || null;
 export const ENV_SMTP_PORT = Number.isFinite(Number(env.SMTP_PORT))
   ? Number(env.SMTP_PORT)

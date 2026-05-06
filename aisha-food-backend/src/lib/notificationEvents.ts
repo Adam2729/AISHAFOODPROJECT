@@ -1,8 +1,14 @@
 import mongoose from "mongoose";
 import { normalizeDeliveryMode, type DeliveryMode } from "@/lib/deliveryPolicy";
 import { NotificationEvent } from "@/models/NotificationEvent";
+import {
+  queueDriverAssignedWhatsApp,
+  queueOrderConfirmedWhatsApp,
+  queueOrderDeliveredWhatsApp,
+  queueOrderOnTheWayWhatsApp,
+} from "@/lib/whatsappNotifications";
 
-type NotificationAudience = "merchant" | "customer";
+type NotificationAudience = "merchant" | "customer" | "driver";
 type SuggestedChannel = "in_app" | "push" | "whatsapp" | "email";
 
 type QueueNotificationInput = {
@@ -195,7 +201,8 @@ export async function queueMerchantNewOrderNotification(input: BaseOrderNotifica
 
 export async function queueCustomerOrderConfirmedNotification(input: BaseOrderNotificationInput) {
   const reference = orderReference(input.orderNumber);
-  await queuePair(
+  await Promise.all([
+    queuePair(
     input,
     null,
     {
@@ -204,12 +211,15 @@ export async function queueCustomerOrderConfirmedNotification(input: BaseOrderNo
       body: `${reference} is confirmed and being prepared.`,
       dedupeSuffix: "order-confirmed",
     }
-  );
+    ),
+    queueOrderConfirmedWhatsApp(input),
+  ]);
 }
 
 export async function queueDriverAssignedNotifications(input: BaseOrderNotificationInput) {
   const reference = orderReference(input.orderNumber);
-  await queuePair(
+  await Promise.all([
+    queuePair(
     input,
     {
       eventType: "driver_assigned",
@@ -223,7 +233,9 @@ export async function queueDriverAssignedNotifications(input: BaseOrderNotificat
       body: `A driver has been assigned to ${reference}.`,
       dedupeSuffix: "driver-assigned",
     }
-  );
+    ),
+    queueDriverAssignedWhatsApp(input),
+  ]);
 }
 
 export async function queueOutForDeliveryNotifications(input: BaseOrderNotificationInput) {
@@ -243,7 +255,8 @@ export async function queueOutForDeliveryNotifications(input: BaseOrderNotificat
           body: `${reference} is out for delivery.`,
           dedupeSuffix: "out-for-delivery",
         };
-  await queuePair(
+  await Promise.all([
+    queuePair(
     input,
     merchantEvent,
     {
@@ -252,12 +265,15 @@ export async function queueOutForDeliveryNotifications(input: BaseOrderNotificat
       body: `${reference} is on the way.`,
       dedupeSuffix: "out-for-delivery",
     }
-  );
+    ),
+    queueOrderOnTheWayWhatsApp(input),
+  ]);
 }
 
 export async function queueOrderDeliveredNotifications(input: BaseOrderNotificationInput) {
   const reference = orderReference(input.orderNumber);
-  await queuePair(
+  await Promise.all([
+    queuePair(
     input,
     {
       eventType: "order_delivered",
@@ -271,7 +287,9 @@ export async function queueOrderDeliveredNotifications(input: BaseOrderNotificat
       body: `${reference} was delivered.`,
       dedupeSuffix: "order-delivered",
     }
-  );
+    ),
+    queueOrderDeliveredWhatsApp(input),
+  ]);
 }
 
 export async function queueDeliveryExceptionNotifications(

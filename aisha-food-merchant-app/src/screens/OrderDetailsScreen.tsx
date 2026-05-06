@@ -17,6 +17,25 @@ function toneForStatus(status: string) {
   return "orange";
 }
 
+function labelForDriverStatus(status: string) {
+  switch (String(status || "").trim().toLowerCase()) {
+    case "assigned":
+      return "Assigned";
+    case "arriving_at_restaurant":
+      return "Arriving at restaurant";
+    case "picked_up":
+      return "Picked up";
+    case "on_the_way":
+      return "On the way";
+    case "nearby":
+      return "Nearby";
+    case "delivered":
+      return "Delivered";
+    default:
+      return "Location unavailable";
+  }
+}
+
 export default function OrderDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
@@ -129,12 +148,35 @@ export default function OrderDetailsScreen() {
         ) : null}
       </View>
 
+      {currentOrder.deliveryMode === "platform_driver" ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Driver handoff</Text>
+          <InfoRow label="Driver status" value={labelForDriverStatus(currentOrder.driverStatus || "")} />
+          {currentOrder.driverEtaMinutes != null ? (
+            <InfoRow label="ETA to pickup" value={`${currentOrder.driverEtaMinutes} min`} />
+          ) : null}
+          {currentOrder.driverLocation ? (
+            <InfoRow
+              label="Latest location"
+              value={`${Number(currentOrder.driverLocation.latitude).toFixed(5)}, ${Number(
+                currentOrder.driverLocation.longitude
+              ).toFixed(5)}`}
+            />
+          ) : (
+            <Text style={styles.driverUnavailable}>Driver location unavailable</Text>
+          )}
+        </View>
+      ) : null}
+
       {currentOrder.status === "ready" && !isSelfDelivery ? (
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Waiting for Driver Pickup</Text>
           <Text style={styles.infoBody}>
             This order is assigned to platform delivery. The merchant can accept, prepare and mark it ready. Driver handoff happens from here.
           </Text>
+          {currentOrder.driverEtaMinutes != null ? (
+            <Text style={styles.infoBody}>ETA to pickup: {currentOrder.driverEtaMinutes} min</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -243,6 +285,11 @@ const styles = StyleSheet.create({
   infoBody: {
     color: colors.text,
     lineHeight: 20,
+  },
+  driverUnavailable: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "700",
   },
   badgeRow: {
     flexDirection: "row",

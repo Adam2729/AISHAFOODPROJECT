@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongodb";
 import { ok, fail } from "@/lib/apiResponse";
 import { SUPPORT_WHATSAPP_DEFAULT_TEXT, SUPPORT_WHATSAPP_E164 } from "@/lib/constants";
@@ -59,11 +60,19 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const orderNumber = url.searchParams.get("orderNumber")?.trim() || "";
+    const orderId = url.searchParams.get("orderId")?.trim() || "";
     const phoneInput = String(url.searchParams.get("phone") || "").trim();
-    if (!orderNumber) return withRequestId(fail("VALIDATION_ERROR", "orderNumber is required."));
+    if (!orderNumber && !orderId) {
+      return withRequestId(fail("VALIDATION_ERROR", "orderId or orderNumber is required."));
+    }
+    if (orderId && !mongoose.Types.ObjectId.isValid(orderId) && !orderNumber) {
+      return withRequestId(fail("VALIDATION_ERROR", "orderId must be a valid id.", 400));
+    }
 
     await dbConnect();
-    const order = await Order.findOne({ orderNumber }).lean();
+    const order = orderId && mongoose.Types.ObjectId.isValid(orderId)
+      ? await Order.findById(orderId).lean()
+      : await Order.findOne({ orderNumber }).lean();
     if (!order) return withRequestId(fail("NOT_FOUND", "Order not found.", 404));
     const business = await Business.findById((order as any).businessId)
       .select("name whatsapp phone eta deliveryType deliveryPolicy")

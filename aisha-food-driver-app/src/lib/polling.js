@@ -35,7 +35,7 @@ export function useFocusedPolling(
 
       const timer = setInterval(() => {
         run().catch(() => null);
-      }, Math.max(10000, Number(intervalMs || 30000)));
+      }, Math.max(2000, Number(intervalMs || 30000)));
       const appStateSubscription = AppState.addEventListener("change", (state) => {
         if (state === "active") {
           run().catch(() => null);

@@ -5,6 +5,7 @@ import { markRiderPayoutsPaid } from "@/lib/riderPayouts";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { dbConnect } from "@/lib/mongodb";
 import { normalizePayoutMethod } from "@/lib/merchantOnboarding";
+import { queueDriverPayoutPaidWhatsApp } from "@/lib/whatsappNotifications";
 import { DriverPayoutRequest } from "@/models/DriverPayoutRequest";
 
 type ApiError = Error & { status?: number; code?: string };
@@ -132,6 +133,16 @@ export async function PATCH(
       requestRow.reviewedBy = "admin_key";
       requestRow.payoutReference = payoutReference;
       await requestRow.save();
+      await queueDriverPayoutPaidWhatsApp({
+        requestId: requestRow._id,
+        driverId: requestRow.driverId,
+        cityId: requestRow.cityId || null,
+        driverName: requestRow.driverName,
+        requestedAmount: Number(requestRow.requestedAmount || 0),
+        currency: requestRow.currency || "XOF",
+        payoutReference,
+        source: "admin.driver_payouts.mark_paid",
+      }).catch(() => null);
       return ok({
         id,
         status: requestRow.status,

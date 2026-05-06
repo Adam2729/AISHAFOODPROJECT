@@ -5,7 +5,7 @@ const NotificationEventSchema = new Schema(
     dedupeKey: { type: String, required: true, trim: true, maxlength: 220, unique: true, index: true },
     audience: {
       type: String,
-      enum: ["merchant", "customer"],
+      enum: ["merchant", "customer", "driver"],
       required: true,
       index: true,
     },

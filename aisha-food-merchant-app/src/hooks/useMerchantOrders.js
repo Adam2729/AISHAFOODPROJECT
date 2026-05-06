@@ -5,6 +5,15 @@ import { mockOrders } from "@/src/data/mockData";
 import { apiRequest } from "@/src/lib/api";
 
 const ACTIVE_STATUSES = ["new", "accepted", "preparing", "ready", "out_for_delivery"];
+const LIVE_FAST_STATUSES = ["new", "accepted", "preparing"];
+const PAYMENT_PENDING_STATUSES = ["pending_payment"];
+const DEFAULT_POLL_MS = 10000;
+const FAST_POLL_MS = 3000;
+const PAYMENT_POLL_MS = 2000;
+const SLOW_POLL_MS = 15000;
+const FAILURE_THRESHOLD = 3;
+const MANUAL_REFRESH_DEBOUNCE_MS = 300;
+const MUTATION_REFRESH_DEBOUNCE_MS = 450;
 
 function normalizeCurrencyCode(value) {
   const normalized = String(value || "").trim().toUpperCase();
@@ -27,9 +36,31 @@ function normalizePaymentStatus(value) {
   return "pending";
 }
 
+function normalizeDriverStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (
+    [
+      "assigned",
+      "arriving_at_restaurant",
+      "picked_up",
+      "on_the_way",
+      "nearby",
+      "delivered",
+    ].includes(normalized)
+  ) {
+    return normalized;
+  }
+  return "";
+}
+
 function normalizeMoney(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeOptionalNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeMerchantOrder(order) {
@@ -64,6 +95,20 @@ function normalizeMerchantOrder(order) {
     driverName: String(
       order?.dispatch?.assignedDriverName || order?.merchantDelivery?.riderName || order?.driverName || ""
     ).trim(),
+    driverPhone: String(order?.dispatch?.assignedDriverPhone || order?.driverPhone || "").trim(),
+    driverStatus: normalizeDriverStatus(order?.driverStatus || order?.dispatch?.driverDispatchStatus),
+    driverEtaMinutes: normalizeOptionalNumber(order?.driverEtaMinutes),
+    driverLastUpdatedAt: String(order?.driverLastUpdatedAt || order?.driverLocation?.updatedAt || "").trim() || null,
+    driverLocation:
+      order?.driverLocation && Number.isFinite(Number(order.driverLocation.latitude ?? order.driverLocation.lat))
+        ? {
+            latitude: Number(order.driverLocation.latitude ?? order.driverLocation.lat),
+            longitude: Number(order.driverLocation.longitude ?? order.driverLocation.lng),
+            lat: Number(order.driverLocation.lat ?? order.driverLocation.latitude),
+            lng: Number(order.driverLocation.lng ?? order.driverLocation.longitude),
+            updatedAt: String(order?.driverLocation?.updatedAt || "").trim() || null,
+          }
+        : null,
     deliveryFee: normalizeMoney(order?.deliveryFeeToCustomer ?? order?.deliveryFee ?? 0),
     currencyCode: normalizeCurrencyCode(order?.currency),
     raw: order,
@@ -92,6 +137,19 @@ function buildDashboardStats(orders) {
     activeOrders,
     todaySales,
   };
+}
+
+function resolvePollInterval(orders, failedRequests) {
+  if (failedRequests >= FAILURE_THRESHOLD) {
+    return SLOW_POLL_MS;
+  }
+  if (orders.some((order) => PAYMENT_PENDING_STATUSES.includes(order.status))) {
+    return PAYMENT_POLL_MS;
+  }
+  if (orders.some((order) => LIVE_FAST_STATUSES.includes(order.status))) {
+    return FAST_POLL_MS;
+  }
+  return DEFAULT_POLL_MS;
 }
 
 async function submitOrderStatus(orderId, status, token) {
@@ -130,16 +188,22 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [usingDemoData, setUsingDemoData] = useState(false);
+  const [connectionSlow, setConnectionSlow] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
+  const [isLiveFastMode, setIsLiveFastMode] = useState(false);
 
   const inFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const ordersRef = useRef([]);
+  const failureCountRef = useRef(0);
+  const debounceTimerRef = useRef(null);
 
   useEffect(() => {
     ordersRef.current = orders;
+    setIsLiveFastMode(resolvePollInterval(orders, failureCountRef.current) < DEFAULT_POLL_MS);
   }, [orders]);
 
-  const refreshOrders = useCallback(async (options = {}) => {
+  const runRefresh = useCallback(async (options = {}) => {
     const { silent = false } = options;
 
     if (!enabled || !token) {
@@ -147,6 +211,9 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
       setUsingDemoData(false);
       setLoading(false);
       setRefreshing(false);
+      setConnectionSlow(false);
+      setLastUpdatedAt("");
+      failureCountRef.current = 0;
       return [];
     }
 
@@ -168,15 +235,19 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
       const normalized = Array.isArray(response?.orders)
         ? response.orders.map(normalizeMerchantOrder).filter(Boolean).sort(byCreatedAtDesc)
         : [];
+      failureCountRef.current = 0;
       setOrders(normalized);
       setUsingDemoData(false);
       setError("");
+      setConnectionSlow(false);
+      setLastUpdatedAt(new Date().toISOString());
       return normalized;
     } catch (requestError) {
       if (requestError?.status === 401) {
         setOrders([]);
         setUsingDemoData(false);
         setError("Your session expired. Please sign in again.");
+        setConnectionSlow(false);
         onUnauthorized?.();
         return [];
       }
@@ -184,9 +255,12 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
         setOrders([]);
         setUsingDemoData(false);
         setError(requestError?.message || "Your merchant account cannot load orders right now.");
+        setConnectionSlow(false);
         return [];
       }
 
+      failureCountRef.current += 1;
+      setConnectionSlow(failureCountRef.current >= FAILURE_THRESHOLD);
       const message =
         requestError?.message ||
         "Cannot connect to OranjeEats server. Check EXPO_PUBLIC_API_URL and backend.";
@@ -203,6 +277,34 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
     }
   }, [enabled, onUnauthorized, token]);
 
+  const refreshOrders = useCallback(
+    (options = {}) => {
+    const {
+        silent = false,
+        debounceMs = 0,
+      } = options;
+
+      const waitMs = Math.max(
+        0,
+        Number(debounceMs || (silent ? 0 : MANUAL_REFRESH_DEBOUNCE_MS))
+      );
+      if (!waitMs) {
+        return runRefresh({ silent });
+      }
+
+      return new Promise((resolve, reject) => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          runRefresh({ silent }).then(resolve).catch(reject);
+        }, waitMs);
+      });
+    },
+    [runRefresh]
+  );
+
   const updateOrderStatus = useCallback(async (orderId, status) => {
     if (!token) {
       throw new Error("You are not signed in.");
@@ -218,6 +320,7 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
           .sort(byCreatedAtDesc)
       );
       setError("");
+      refreshOrders({ silent: true, debounceMs: MUTATION_REFRESH_DEBOUNCE_MS }).catch(() => null);
       return updated;
     } catch (requestError) {
       if (requestError?.status === 401) {
@@ -225,7 +328,7 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
       }
       throw requestError;
     }
-  }, [onUnauthorized, token]);
+  }, [onUnauthorized, refreshOrders, token]);
 
   const acceptOrder = useCallback(async (orderId) => updateOrderStatus(orderId, "accepted"), [updateOrderStatus]);
   const rejectOrder = useCallback(async (orderId) => updateOrderStatus(orderId, "cancelled"), [updateOrderStatus]);
@@ -236,35 +339,63 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
       return undefined;
     }
 
-    refreshOrders().catch(() => null);
+    let cancelled = false;
+    let timerId = null;
 
-    const startPolling = () => {
-      return setInterval(() => {
-        if (appStateRef.current === "active") {
-          refreshOrders({ silent: true }).catch(() => null);
-        }
-      }, 10000);
+    const scheduleNextPoll = () => {
+      if (cancelled || appStateRef.current !== "active") {
+        return;
+      }
+      const intervalMs = resolvePollInterval(ordersRef.current, failureCountRef.current);
+      setIsLiveFastMode(intervalMs < DEFAULT_POLL_MS && failureCountRef.current < FAILURE_THRESHOLD);
+      timerId = setTimeout(() => {
+        runRefresh({ silent: true })
+          .catch(() => null)
+          .finally(() => {
+            scheduleNextPoll();
+          });
+      }, intervalMs);
     };
 
-    let intervalId = startPolling();
+    runRefresh({ silent: false })
+      .catch(() => null)
+      .finally(() => {
+        scheduleNextPoll();
+      });
+
     const subscription = AppState.addEventListener("change", (nextState) => {
       const wasBackgrounded = appStateRef.current !== "active" && nextState === "active";
       appStateRef.current = nextState;
 
-      clearInterval(intervalId);
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
       if (nextState === "active") {
-        intervalId = startPolling();
         if (wasBackgrounded) {
-          refreshOrders({ silent: true }).catch(() => null);
+          runRefresh({ silent: true })
+            .catch(() => null)
+            .finally(() => {
+              scheduleNextPoll();
+            });
+        } else {
+          scheduleNextPoll();
         }
       }
     });
 
     return () => {
-      clearInterval(intervalId);
+      cancelled = true;
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
       subscription.remove();
     };
-  }, [enabled, refreshOrders, token]);
+  }, [enabled, runRefresh, token]);
 
   const newOrder = useMemo(() => {
     return orders.find((order) => order.status === "new") || null;
@@ -278,6 +409,9 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
     refreshing,
     error,
     usingDemoData,
+    connectionSlow,
+    lastUpdatedAt,
+    isLiveFastMode,
     refreshOrders,
     newOrder,
     acceptOrder,

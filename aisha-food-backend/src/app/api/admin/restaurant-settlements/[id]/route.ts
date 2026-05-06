@@ -4,6 +4,7 @@ import { requireAdminKey } from "@/lib/adminAuth";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { dbConnect } from "@/lib/mongodb";
 import { normalizePayoutMethod } from "@/lib/merchantOnboarding";
+import { queueMerchantPayoutPaidWhatsApp } from "@/lib/whatsappNotifications";
 import { RestaurantSettlement } from "@/models/RestaurantSettlement";
 
 type ApiError = Error & { status?: number; code?: string };
@@ -85,6 +86,16 @@ export async function PATCH(
       settlement.paidAt = new Date();
       settlement.paidBy = "admin_key";
       await settlement.save();
+      await queueMerchantPayoutPaidWhatsApp({
+        settlementId: settlement._id,
+        businessId: settlement.merchantId,
+        cityId: settlement.cityId || null,
+        restaurantName: settlement.restaurantName,
+        currency: settlement.currency || "XOF",
+        netAmount: Number(settlement.restaurantNet || 0),
+        payoutReference: settlement.payoutReference || text(body.payoutReference, 160),
+        source: "admin.restaurant_settlements.mark_paid",
+      }).catch(() => null);
       return ok({ id, status: settlement.status, paidAt: settlement.paidAt });
     }
 

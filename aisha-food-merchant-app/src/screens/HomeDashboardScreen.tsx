@@ -32,7 +32,10 @@ export default function HomeDashboardScreen() {
     merchantProfile,
     newOrder,
     orders,
+    ordersConnectionSlow,
     ordersError,
+    ordersIsLiveFastMode,
+    ordersLastUpdatedAt,
     ordersLoading,
     ordersRefreshing,
     refreshOrders,
@@ -51,6 +54,12 @@ export default function HomeDashboardScreen() {
     ["new", "accepted", "preparing", "ready", "out_for_delivery"].includes(order.status)
   );
   const featuredOrder = activeOrders[0] || null;
+  const lastUpdatedLabel = ordersLastUpdatedAt
+    ? new Date(ordersLastUpdatedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Waiting for first sync";
 
   async function onToggleStoreOpen() {
     try {
@@ -134,6 +143,25 @@ export default function HomeDashboardScreen() {
           </View>
         ) : null}
 
+        <View style={styles.liveStrip}>
+          <View style={styles.livePill}>
+            <View
+              style={[
+                styles.liveDot,
+                ordersConnectionSlow
+                  ? styles.liveDotSlow
+                  : ordersIsLiveFastMode
+                  ? styles.liveDotFast
+                  : styles.liveDotStandard,
+              ]}
+            />
+            <Text style={styles.livePillText}>
+              {ordersConnectionSlow ? "Connection slow" : ordersIsLiveFastMode ? "Live" : "Syncing"}
+            </Text>
+          </View>
+          <Text style={styles.liveMetaText}>Last updated: {lastUpdatedLabel}</Text>
+        </View>
+
         {ordersError ? (
           <View style={styles.errorCard}>
             <Text style={styles.errorTitle}>Orders refresh issue</Text>
@@ -156,7 +184,11 @@ export default function HomeDashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>New Order</Text>
-            <OrangeButton label="Refresh" variant="outline" onPress={() => refreshOrders()} />
+            <OrangeButton
+              label="Refresh"
+              variant="outline"
+              onPress={() => refreshOrders({ debounceMs: 300 })}
+            />
           </View>
 
           {ordersLoading ? (
@@ -304,6 +336,47 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontSize: 12,
     fontWeight: "800",
+  },
+  liveStrip: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  liveDotFast: {
+    backgroundColor: colors.success,
+  },
+  liveDotStandard: {
+    backgroundColor: colors.primary,
+  },
+  liveDotSlow: {
+    backgroundColor: colors.danger,
+  },
+  livePillText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  liveMetaText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
   },
   errorCard: {
     backgroundColor: colors.card,

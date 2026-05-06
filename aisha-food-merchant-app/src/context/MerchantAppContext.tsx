@@ -56,9 +56,12 @@ type MerchantAppContextValue = {
   ordersRefreshing: boolean;
   ordersError: string;
   usingDemoData: boolean;
+  ordersConnectionSlow: boolean;
+  ordersLastUpdatedAt: string;
+  ordersIsLiveFastMode: boolean;
   newOrder: MerchantOrder | null;
   dashboardStats: DashboardStats;
-  refreshOrders: (options?: { silent?: boolean }) => Promise<MerchantOrder[]>;
+  refreshOrders: (options?: { silent?: boolean; debounceMs?: number }) => Promise<MerchantOrder[]>;
   acceptOrder: (orderId: string) => Promise<unknown>;
   rejectOrder: (orderId: string) => Promise<unknown>;
   updateOrderStatus: (orderId: string, status: string) => Promise<unknown>;
@@ -283,6 +286,9 @@ export function MerchantAppProvider({ children }: { children: React.ReactNode })
       ordersRefreshing: ordersState.refreshing,
       ordersError: ordersState.error,
       usingDemoData: ordersState.usingDemoData,
+      ordersConnectionSlow: ordersState.connectionSlow,
+      ordersLastUpdatedAt: ordersState.lastUpdatedAt,
+      ordersIsLiveFastMode: ordersState.isLiveFastMode,
       newOrder: ordersState.newOrder,
       dashboardStats: ordersState.dashboardStats,
       refreshOrders: ordersState.refreshOrders,

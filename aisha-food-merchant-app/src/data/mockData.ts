@@ -45,6 +45,17 @@ export type MerchantOrder = {
   status: OrderStatus;
   createdAt: string;
   driverName?: string;
+  driverPhone?: string;
+  driverStatus?: string;
+  driverEtaMinutes?: number | null;
+  driverLastUpdatedAt?: string | null;
+  driverLocation?: {
+    latitude: number;
+    longitude: number;
+    lat?: number;
+    lng?: number;
+    updatedAt?: string | null;
+  } | null;
   deliveryFee?: number;
   currencyCode?: "XOF" | "DOP" | "GBP";
   raw?: Record<string, unknown>;

@@ -44,6 +44,7 @@ import {
   subscribePendingDriverActions,
 } from "../lib/offlineSync";
 import { clearOfferNotificationMarker, announceIncomingOffer } from "../lib/offerNotifications";
+import { getDriverPollingInterval } from "../lib/orderEvents";
 import { formatCurrency } from "../lib/orderUtils";
 import { useFocusedPolling } from "../lib/polling";
 
@@ -280,6 +281,17 @@ export default function HomeScreen({ navigation }) {
     [driver?.availability]
   );
   const shouldTrackLocation = isOnline || hasValidActiveOrder;
+  const pollIntervalMs = useMemo(
+    () =>
+      getDriverPollingInterval({
+        currentOffer,
+        activeOrder: displayActiveOrder,
+        isOnline,
+        weakNetwork: Boolean(weakNetworkMessage),
+        hasPendingSync: pendingActions.length > 0,
+      }),
+    [currentOffer, displayActiveOrder, isOnline, pendingActions.length, weakNetworkMessage]
+  );
 
   const applyOffer = useCallback(async (offer, { silent = false } = {}) => {
     const nextOffer = isValidCurrentOffer(offer) ? offer : null;
@@ -744,7 +756,7 @@ export default function HomeScreen({ navigation }) {
   );
 
   useFocusedPolling(() => loadDashboard({ silent: true }), {
-    intervalMs: 10000,
+    intervalMs: pollIntervalMs,
     enabled:
       isValidCurrentOffer(currentOffer) ||
       hasValidActiveOrder ||
@@ -762,8 +774,8 @@ export default function HomeScreen({ navigation }) {
     }
 
     startDriverLocationTracking({
-      timeInterval: 15000,
-      distanceInterval: 60,
+      timeInterval: hasValidActiveOrder ? 10000 : 15000,
+      distanceInterval: hasValidActiveOrder ? 30 : 60,
       onUpdate: (coords) => {
         if (!isMounted || !coords) {
           return;

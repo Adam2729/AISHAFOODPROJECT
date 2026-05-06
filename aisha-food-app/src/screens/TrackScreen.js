@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   Pressable,
   ScrollView,
@@ -34,6 +35,23 @@ function isObjectIdLike(value) {
   return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
 }
 
+function driverStatusLabel(stageKey) {
+  switch (String(stageKey || "").trim().toLowerCase()) {
+    case "accepted":
+      return "assigned";
+    case "preparing":
+      return "arriving_at_restaurant";
+    case "ready":
+      return "picked_up";
+    case "out_for_delivery":
+      return "on_the_way";
+    case "delivered":
+      return "delivered";
+    default:
+      return "assigned";
+  }
+}
+
 export default function TrackScreen({ route }) {
   const { selectedCity: city, market } = useAppShell();
   const initialOrderId = String(route?.params?.orderId || "").trim();
@@ -48,8 +66,12 @@ export default function TrackScreen({ route }) {
   const [activeOrderReference, setActiveOrderReference] = useState(orderNumber);
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(Boolean(initialOrderId || orderNumber));
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
   const [networkNotice, setNetworkNotice] = useState("");
+  const inFlightRef = useRef(false);
+  const appStateRef = useRef(AppState.currentState);
+  const previousPaymentStatusRef = useRef("");
 
   const uiCopy = useMemo(() => getCustomerUiCopy(market), [market]);
   const supportAvailability = useMemo(() => getSupportAvailability(market), [market]);
@@ -120,7 +142,8 @@ export default function TrackScreen({ route }) {
         locationUpdated: "Mis a jour le",
       };
 
-  async function load(orderReferenceOrId) {
+  async function load(orderReferenceOrId, options = {}) {
+    const { silent = false } = options;
     const safeLookup = String(orderReferenceOrId || "").trim();
     const fallbackReference = String(activeOrderReference || orderNumber || "").trim();
     const lookupOrderId = isObjectIdLike(safeLookup)
@@ -135,7 +158,16 @@ export default function TrackScreen({ route }) {
       return;
     }
 
-    setLoading(true);
+    if (inFlightRef.current) {
+      return;
+    }
+
+    inFlightRef.current = true;
+    if (silent && snapshot) {
+      setIsUpdating(true);
+    } else {
+      setLoading(true);
+    }
     if (!snapshot) setError("");
     setNetworkNotice("");
     try {
@@ -157,22 +189,52 @@ export default function TrackScreen({ route }) {
         setError(requestError?.message || text.loadError);
       }
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
+      setIsUpdating(false);
     }
   }
 
   useEffect(() => {
     if (!initialOrderId && !orderNumber) return undefined;
-    load(initialOrderReference).catch(() => null);
+    load(initialOrderReference, { silent: false }).catch(() => null);
   }, [initialOrderId, orderNumber]);
 
   useEffect(() => {
     if (!activeOrderId && !activeOrderReference) return undefined;
     const timer = setInterval(() => {
-      load(activeOrderId || activeOrderReference).catch(() => null);
-    }, 12000);
+      load(activeOrderId || activeOrderReference, { silent: true }).catch(() => null);
+    }, 5000);
     return () => clearInterval(timer);
   }, [activeOrderId, activeOrderReference]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const wasBackgrounded = appStateRef.current !== "active" && nextState === "active";
+      appStateRef.current = nextState;
+      if (wasBackgrounded && (activeOrderId || activeOrderReference)) {
+        load(activeOrderId || activeOrderReference, { silent: true }).catch(() => null);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [activeOrderId, activeOrderReference]);
+
+  useEffect(() => {
+    const nextPaymentStatus = String(snapshot?.payment?.status || "").trim().toLowerCase();
+    const previousPaymentStatus = previousPaymentStatusRef.current;
+    previousPaymentStatusRef.current = nextPaymentStatus;
+    if (
+      nextPaymentStatus === "paid" &&
+      previousPaymentStatus &&
+      previousPaymentStatus !== "paid" &&
+      (activeOrderId || activeOrderReference)
+    ) {
+      load(activeOrderId || activeOrderReference, { silent: true }).catch(() => null);
+    }
+  }, [activeOrderId, activeOrderReference, snapshot?.payment?.status]);
 
   const paymentEvents = useMemo(
     () => (Array.isArray(snapshot?.paymentEvents) ? snapshot.paymentEvents.slice(0, 3) : []),
@@ -207,6 +269,7 @@ export default function TrackScreen({ route }) {
   const canShowEta =
     Number.isFinite(Number(snapshot?.etaMinutes)) &&
     !["pending_payment", "cancelled", "delivered"].includes(deliveryPresentation.stageKey);
+  const currentDriverStatus = driverStatusLabel(deliveryPresentation.stageKey);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -222,7 +285,10 @@ export default function TrackScreen({ route }) {
           style={styles.input}
           autoCapitalize="none"
         />
-        <Pressable style={styles.primaryButton} onPress={() => load(orderReferenceInput)}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => load(orderReferenceInput, { silent: false })}
+        >
           <Text style={styles.primaryButtonText}>{text.refresh}</Text>
         </Pressable>
       </View>
@@ -231,6 +297,12 @@ export default function TrackScreen({ route }) {
         <View style={styles.stateCard}>
           <ActivityIndicator color="#F97316" />
           <Text style={styles.stateText}>{text.loading}</Text>
+        </View>
+      ) : null}
+
+      {!loading && isUpdating ? (
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeText}>Updating order status...</Text>
         </View>
       ) : null}
 
@@ -311,6 +383,7 @@ export default function TrackScreen({ route }) {
           {(snapshot?.driverName || snapshot?.driverPhone || driverLocation) ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{text.driver}</Text>
+              <Text style={styles.helperText}>Status: {currentDriverStatus}</Text>
               {snapshot?.driverName ? <Text style={styles.helperText}>{snapshot.driverName}</Text> : null}
               {snapshot?.driverPhone ? <Text style={styles.helperText}>{snapshot.driverPhone}</Text> : null}
               {driverLocation ? (
@@ -325,6 +398,10 @@ export default function TrackScreen({ route }) {
                     </Text>
                   ) : null}
                 </>
+              ) : canShowEta ? (
+                <Text style={styles.helperText}>
+                  Tracking map not ready. ETA: {Number(snapshot?.etaMinutes)} min.
+                </Text>
               ) : null}
             </View>
           ) : null}
