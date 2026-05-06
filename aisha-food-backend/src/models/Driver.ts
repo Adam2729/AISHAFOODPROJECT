@@ -1,4 +1,5 @@
 import { Schema, model, models } from "mongoose";
+import { PAYOUT_METHODS } from "@/lib/merchantOnboarding";
 import { normalizePhone, phoneToHash } from "@/lib/phoneHash";
 
 const DriverSchema = new Schema(
@@ -40,6 +41,16 @@ const DriverSchema = new Schema(
     pushTokenUpdatedAt: { type: Date, default: null },
     zoneLabel: { type: String, default: null, trim: true, maxlength: 80, index: true },
     vehicleType: { type: String, default: null, trim: true, maxlength: 40 },
+    payout: {
+      preferredMethod: {
+        type: String,
+        enum: PAYOUT_METHODS,
+        default: "cash",
+      },
+      accountName: { type: String, default: "", trim: true, maxlength: 120 },
+      accountNumber: { type: String, default: "", trim: true, maxlength: 120 },
+      notes: { type: String, default: "", trim: true, maxlength: 400 },
+    },
     referralCode: {
       type: String,
       default: null,
@@ -167,6 +178,10 @@ if (existingDriverModel) {
     !existingSchema.path?.("email") ||
     !existingSchema.path?.("auth.passwordHash") ||
     !existingSchema.path?.("lastLocation.lat") ||
+    !existingSchema.path?.("payout.preferredMethod") ||
+    !existingSchema.path?.("payout.accountName") ||
+    !existingSchema.path?.("payout.accountNumber") ||
+    !existingSchema.path?.("payout.notes") ||
     !existingSchema.path?.("referralCode") ||
     !existingSchema.path?.("referredByCode") ||
     !existingSchema.path?.("signupBonusAmount") ||

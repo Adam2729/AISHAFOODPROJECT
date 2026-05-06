@@ -16,11 +16,18 @@ export const ACTIVE_MERCHANT_TYPES = [
 export const DELIVERY_TYPES = ["own_driver", "platform_driver"] as const;
 
 export const PAYOUT_METHODS = [
+  "orange_money",
+  "moov_money",
+  "wave",
   "bank_transfer",
+  "cash",
+] as const;
+
+const LEGACY_PAYOUT_METHOD_ALIASES = new Set([
   "mobile_money",
   "cash_collection",
   "weekly_cashout",
-] as const;
+]);
 
 export type MerchantType = (typeof MERCHANT_TYPES)[number];
 export type ActiveMerchantType = (typeof ACTIVE_MERCHANT_TYPES)[number];
@@ -41,6 +48,26 @@ export function isDeliveryType(value: unknown): value is DeliveryType {
 
 export function isPayoutMethod(value: unknown): value is PayoutMethod {
   return PAYOUT_METHODS.includes(String(value || "").trim() as PayoutMethod);
+}
+
+export function getPayoutMethodLabel(value: unknown) {
+  switch (String(value || "").trim()) {
+    case "orange_money":
+    case "mobile_money":
+      return "Orange Money";
+    case "moov_money":
+      return "Moov Money";
+    case "wave":
+      return "Wave";
+    case "bank_transfer":
+      return "Bank transfer";
+    case "cash":
+    case "cash_collection":
+    case "weekly_cashout":
+      return "Cash";
+    default:
+      return "Cash";
+  }
 }
 
 export function getMerchantTypeLabel(value: unknown) {
@@ -116,5 +143,10 @@ export function normalizeDeliveryType(value: unknown, marketCode?: unknown): Del
 }
 
 export function normalizePayoutMethod(value: unknown): PayoutMethod {
-  return isPayoutMethod(value) ? value : "cash_collection";
+  const normalized = String(value || "").trim().toLowerCase();
+  if (isPayoutMethod(normalized)) return normalized;
+  if (normalized === "mobile_money") return "orange_money";
+  if (normalized === "cash_collection" || normalized === "weekly_cashout") return "cash";
+  if (LEGACY_PAYOUT_METHOD_ALIASES.has(normalized)) return "cash";
+  return "cash";
 }

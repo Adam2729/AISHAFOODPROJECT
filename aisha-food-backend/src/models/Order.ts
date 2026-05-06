@@ -153,7 +153,16 @@ const OrderSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["new", "accepted", "preparing", "ready", "out_for_delivery", "delivered", "cancelled"],
+      enum: [
+        "pending_payment",
+        "new",
+        "accepted",
+        "preparing",
+        "ready",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+      ],
       default: "new",
       index: true,
     },
@@ -672,6 +681,28 @@ if (existingOrderModel) {
     add?: (obj: Record<string, unknown>) => unknown;
     path?: (name: string) => unknown;
   };
+  const existingStatusPath = existingSchema.path?.("status") as
+    | {
+        enumValues?: string[];
+        options?: { enum?: string[]; default?: string };
+      }
+    | undefined;
+  if (existingStatusPath) {
+    existingStatusPath.enumValues = [
+      "pending_payment",
+      "new",
+      "accepted",
+      "preparing",
+      "ready",
+      "out_for_delivery",
+      "delivered",
+      "cancelled",
+    ];
+    if (existingStatusPath.options) {
+      existingStatusPath.options.enum = [...existingStatusPath.enumValues];
+      existingStatusPath.options.default = "new";
+    }
+  }
   const needsDispatchMerge = !existingSchema.path?.("dispatch");
   const needsDeliverySnapshotMerge = !existingSchema.path?.("deliverySnapshot");
   const needsMerchantDeliveryMerge = !existingSchema.path?.("merchantDelivery");

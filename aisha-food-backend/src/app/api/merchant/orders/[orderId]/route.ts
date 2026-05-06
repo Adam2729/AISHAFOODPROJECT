@@ -345,6 +345,25 @@ export async function PATCH(
         businessId: session.businessId,
       });
     }
+    if (existing.status === "pending_payment") {
+      return finish(
+        fail(
+          "PAYMENT_PENDING",
+          "PayTech orders can only move forward after online payment is confirmed.",
+          409
+        ),
+        409,
+        {
+          orderId,
+          businessId: session.businessId,
+          paymentMethod: String(existing.payment?.method || "").trim().toLowerCase() || null,
+          paymentStatus:
+            String(existing.payment?.status || existing.paymentStatus || "pending")
+              .trim()
+              .toLowerCase() || "pending",
+        }
+      );
+    }
     if (
       existing.status === "delivered" &&
       nextStatus === "delivered" &&

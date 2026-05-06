@@ -5,6 +5,7 @@ import { sendEmail, formatE164ForDisplay } from "@/lib/email";
 import { hashDriverPassword } from "@/lib/driverCredentials";
 import { getMarketConfig } from "@/lib/marketConfig";
 import { assertNotInMaintenance } from "@/lib/maintenance";
+import { normalizePayoutMethod } from "@/lib/merchantOnboarding";
 import { requireActiveCity, resolveCityFromRequest } from "@/lib/city";
 import { phoneToHash } from "@/lib/phoneHash";
 import { DriverApplication } from "@/models/DriverApplication";
@@ -22,6 +23,10 @@ type Body = {
   idDocumentUrl?: string;
   zoneLabel?: string;
   vehicleType?: string;
+  payoutMethod?: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutNotes?: string;
   referredByCode?: string;
   notes?: string;
   city?: string;
@@ -79,6 +84,10 @@ export async function POST(req: Request) {
     const idDocumentUrl = normalize(body.idDocumentUrl, 500, false) || null;
     const zoneLabel = normalize(body.zoneLabel, 80, false) || null;
     const vehicleType = normalize(body.vehicleType, 40, true) || null;
+    const payoutMethod = normalizePayoutMethod(body.payoutMethod);
+    const payoutAccountName = normalize(body.payoutAccountName, 120, false);
+    const payoutAccountNumber = normalize(body.payoutAccountNumber, 120, false);
+    const payoutNotes = normalize(body.payoutNotes, 400, false);
     const referredByCode = normalize(body.referredByCode, 24, false).toUpperCase() || null;
     const notes = normalize(body.notes, 280, false) || null;
 
@@ -124,6 +133,10 @@ export async function POST(req: Request) {
       zoneLabel,
       vehicleType,
       availability,
+      payoutMethod,
+      payoutAccountName,
+      payoutAccountNumber,
+      payoutNotes,
       documentsStatus,
       idDocumentUrl,
       referredByCode,

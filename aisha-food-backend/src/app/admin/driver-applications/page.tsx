@@ -12,6 +12,10 @@ type ApplicationRow = {
   zoneLabel?: string | null;
   vehicleType?: string | null;
   availability?: string | null;
+  payoutMethod?: string | null;
+  payoutAccountName?: string | null;
+  payoutAccountNumber?: string | null;
+  payoutNotes?: string | null;
   notes?: string | null;
   createdAt?: string | null;
   status: string;
@@ -348,6 +352,9 @@ export default function AdminDriverApplicationsPage() {
                       <div>{row.city || row.zoneLabel || "-"}</div>
                       <div className="text-xs text-slate-500">
                         {[row.vehicleType, row.availability].filter(Boolean).join(" / ") || "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {[row.payoutMethod, row.payoutAccountNumber].filter(Boolean).join(" / ") || "-"}
                       </div>
                     </td>
                     <td className="py-2 text-xs">{formatDate(row.createdAt)}</td>

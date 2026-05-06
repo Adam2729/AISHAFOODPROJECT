@@ -34,6 +34,10 @@ type DriverRow = {
   accountStatus?: string | null;
   isActive?: boolean;
   zoneLabel?: string | null;
+  payoutMethod?: string | null;
+  payoutAccountName?: string | null;
+  payoutAccountNumber?: string | null;
+  payoutNotes?: string | null;
   activeAssignedOrderCount?: number;
   lastLocationUpdatedAt?: string | null;
   createdAt?: string | null;
@@ -471,6 +475,12 @@ export default function AdminDriversPage() {
           >
             Review Driver Applications
           </Link>
+          <Link
+            href="/admin/payouts#driver-payout-requests"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"
+          >
+            Driver Payout Requests
+          </Link>
           <button
             type="button"
             onClick={() => loadAll()}
@@ -685,6 +695,9 @@ export default function AdminDriversPage() {
                     <td className="px-4 py-3">
                       <div>{selectedCity?.name || selectedCity?.code || "-"}</div>
                       <div className="mt-1 text-xs text-slate-500">{driver.zoneLabel || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {[driver.payoutMethod, driver.payoutAccountNumber].filter(Boolean).join(" / ") || "-"}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase text-slate-700">

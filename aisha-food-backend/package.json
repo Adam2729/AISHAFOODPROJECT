@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seedDemo.ts",
+    "seed:merchant-mvp": "tsx src/scripts/seedMerchantMvpTest.ts",
     "qa:smoke": "node scripts/smokeSuite.js",
     "qa:smoke:win": "powershell -ExecutionPolicy Bypass -File scripts/smokeSuite.ps1",
     "qa:smoke:integrity": "node scripts/smokeRevenueIntegrity.js",
@@ -95,10 +96,12 @@
     "incident:new:win": "powershell -ExecutionPolicy Bypass -File scripts/new-incident.ps1"
   },
   "dependencies": {
+    "autoprefixer": "^10.5.0",
     "mongoose": "^9.2.1",
     "nanoid": "^5.1.6",
     "next": "16.1.6",
     "nodemailer": "^8.0.7",
+    "postcss": "^8.5.14",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "styled-jsx": "^5.1.7"
@@ -112,9 +115,10 @@
     "dotenv": "^16.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.2.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

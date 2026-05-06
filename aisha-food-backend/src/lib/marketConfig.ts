@@ -1,14 +1,18 @@
 import type { CityLean } from "@/lib/city";
 
-export type MarketCode = "DO" | "ML";
+export type MarketCode = "DO" | "ML" | "SN";
 export type MarketLanguage = "es" | "fr" | "bm" | "en";
 export type MarketPaymentMethod =
   | "cash"
   | "orange_money"
+  | "orange_money_ml"
+  | "orange_money_sn"
   | "wave"
   | "moov_money"
+  | "moov_money_ml"
   | "mobile_money"
-  | "paytech";
+  | "paytech"
+  | "card";
 
 type CityLike = Partial<
   Pick<
@@ -68,12 +72,24 @@ const ML_MARKET: MarketConfig = {
   defaultTimezone: "Africa/Bamako",
   paymentMethods: [
     "cash",
-    "orange_money",
+    "orange_money_ml",
     "wave",
-    "moov_money",
-    "mobile_money",
+    "moov_money_ml",
     "paytech",
   ],
+};
+
+const SN_MARKET: MarketConfig = {
+  marketCode: "SN",
+  countryName: "Senegal",
+  defaultLanguage: "fr",
+  allowedLanguages: ["fr", "en"],
+  currencyCode: "XOF",
+  currencyDisplay: "XOF",
+  supportWhatsApp: ML_SUPPORT_WHATSAPP_PLACEHOLDER,
+  supportWhatsAppIsPlaceholder: true,
+  defaultTimezone: "Africa/Dakar",
+  paymentMethods: ["cash", "orange_money_sn", "wave", "paytech", "card"],
 };
 
 const PAYMENT_METHOD_FALLBACK: MarketPaymentMethod[] = ["cash", "mobile_money", "paytech"];
@@ -104,7 +120,7 @@ function launchDefaultMarketCode(): MarketCode {
 }
 
 export function resolveMarketCode(city?: CityLike | null): MarketCode {
-  const code = normalizeUpper(city?.code);
+  const code = normalizeUpper(city?.code || (city as { marketCode?: unknown } | null)?.marketCode);
   const slug = normalizeLower(city?.slug);
   const name = normalizeLower(city?.name);
   const country = normalizeLower(city?.country);
@@ -112,12 +128,21 @@ export function resolveMarketCode(city?: CityLike | null): MarketCode {
     normalizeUpper(city?.currencyCode) || normalizeUpper(city?.currency);
 
   if (
+    code === "SN" ||
+    code === "DKR" ||
+    slug === "dakar" ||
+    name === "dakar" ||
+    country === "senegal"
+  ) {
+    return "SN";
+  }
+
+  if (
+    code === "ML" ||
     code === "BKO" ||
     slug === "bamako" ||
     name === "bamako" ||
-    country === "mali" ||
-    currency === "CFA" ||
-    currency === "XOF"
+    country === "mali"
   ) {
     return "ML";
   }
@@ -147,7 +172,9 @@ function deriveSupportWhatsApp(city: CityLike | null | undefined, fallback: stri
 function derivePaymentMethods(city: CityLike | null | undefined, market: MarketConfig) {
   const raw = Array.isArray(city?.paymentMethods) ? city?.paymentMethods : [];
   if (!raw.length) {
-    return market.marketCode === "ML" ? [...market.paymentMethods] : [...PAYMENT_METHOD_FALLBACK];
+    return market.marketCode === "ML" || market.marketCode === "SN"
+      ? [...market.paymentMethods]
+      : [...PAYMENT_METHOD_FALLBACK];
   }
 
   const methods = new Set<MarketPaymentMethod>();
@@ -159,39 +186,82 @@ function derivePaymentMethods(city: CityLike | null | undefined, market: MarketC
     }
     if (
       normalized === "orange_money" ||
+      normalized === "orange_money_ml" ||
+      normalized === "orange_money_sn" ||
       normalized === "mobile_money" ||
       normalized === "orangemoney" ||
       normalized === "moov_money" ||
+      normalized === "moov_money_ml" ||
       normalized === "moovmoney" ||
       normalized === "wave" ||
       normalized === "wavemoney" ||
       normalized === "momo"
     ) {
-      if (normalized === "orange_money" || normalized === "orangemoney") {
-        methods.add("orange_money");
+      if (
+        normalized === "orange_money_ml" ||
+        ((normalized === "orange_money" || normalized === "orangemoney") &&
+          market.marketCode === "ML")
+      ) {
+        methods.add("orange_money_ml");
+      }
+      if (
+        normalized === "orange_money_sn" ||
+        ((normalized === "orange_money" || normalized === "orangemoney") &&
+          market.marketCode === "SN")
+      ) {
+        methods.add("orange_money_sn");
       }
       if (normalized === "wave" || normalized === "wavemoney") {
         methods.add("wave");
       }
-      if (normalized === "moov_money" || normalized === "moovmoney") {
-        methods.add("moov_money");
+      if (
+        normalized === "moov_money_ml" ||
+        normalized === "moov_money" ||
+        normalized === "moovmoney"
+      ) {
+        methods.add("moov_money_ml");
       }
-      methods.add("mobile_money");
+      if (normalized === "mobile_money" || normalized === "momo") {
+        if (market.marketCode === "SN") {
+          methods.add("orange_money_sn");
+          methods.add("wave");
+        } else {
+          methods.add("orange_money_ml");
+          methods.add("moov_money_ml");
+          methods.add("wave");
+        }
+      }
       continue;
     }
     if (normalized === "paytech") {
       methods.add("paytech");
+      continue;
+    }
+    if (normalized === "card" || normalized === "carte" || normalized === "carte_bancaire") {
+      methods.add("card");
     }
   }
 
   if (!methods.size) {
-    return market.marketCode === "ML" ? [...market.paymentMethods] : [...PAYMENT_METHOD_FALLBACK];
+    return market.marketCode === "ML" || market.marketCode === "SN"
+      ? [...market.paymentMethods]
+      : [...PAYMENT_METHOD_FALLBACK];
   }
 
   const hasDigitalMethods = Array.from(methods).some((method) =>
-    ["orange_money", "wave", "moov_money", "mobile_money", "paytech"].includes(method)
+    [
+      "orange_money",
+      "orange_money_ml",
+      "orange_money_sn",
+      "wave",
+      "moov_money",
+      "moov_money_ml",
+      "mobile_money",
+      "paytech",
+      "card",
+    ].includes(method)
   );
-  if (market.marketCode === "ML" && !hasDigitalMethods) {
+  if ((market.marketCode === "ML" || market.marketCode === "SN") && !hasDigitalMethods) {
     return [...market.paymentMethods];
   }
 
@@ -210,7 +280,9 @@ function isPlaceholderSupportWhatsApp(value: string) {
 }
 
 export function getMarketConfig(city?: CityLike | null): MarketConfig {
-  const market = resolveMarketCode(city) === "ML" ? ML_MARKET : DO_MARKET;
+  const marketCode = resolveMarketCode(city);
+  const market =
+    marketCode === "ML" ? ML_MARKET : marketCode === "SN" ? SN_MARKET : DO_MARKET;
   const supportWhatsApp = deriveSupportWhatsApp(city, market.supportWhatsApp);
 
   return {
@@ -253,5 +325,8 @@ export function getDefaultTimezoneForCity(city?: CityLike | null) {
 }
 
 export function getMarketLocale(city?: CityLike | null) {
-  return resolveMarketCode(city) === "ML" ? "fr-ML" : "es-DO";
+  const marketCode = resolveMarketCode(city);
+  if (marketCode === "ML") return "fr-ML";
+  if (marketCode === "SN") return "fr-SN";
+  return "es-DO";
 }

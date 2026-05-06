@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongodb";
 import { ok, fail, readJson } from "@/lib/apiResponse";
+import { getCityByIdOrDefault } from "@/lib/city";
+import { getMarketConfig } from "@/lib/marketConfig";
 import {
   createPayTechPayment,
   getPayTechDefaultCancelUrl,
   getPayTechDefaultSuccessUrl,
   getPayTechWebhookSecret,
+  normalizePayTechCustomerPhone,
+  resolvePayTechRoutingProfile,
 } from "@/lib/paytech";
 import { Order } from "@/models/Order";
 import { PaymentEvent } from "@/models/PaymentEvent";
@@ -20,6 +24,7 @@ type OrderPaymentRow = {
   _id: mongoose.Types.ObjectId;
   orderNumber?: string | null;
   cityId?: mongoose.Types.ObjectId | null;
+  phone?: string | null;
   total?: number | null;
   currency?: string | null;
   payment?: {
@@ -75,7 +80,7 @@ export async function POST(req: Request) {
 
     const order = await Order.findById(orderId)
       .select(
-        "_id orderNumber cityId total currency payment.method payment.status payment.provider paymentStatus paytechRefCommand paytechPaymentUrl"
+        "_id orderNumber cityId phone total currency payment.method payment.status payment.provider paymentStatus paytechRefCommand paytechPaymentUrl"
       )
       .lean<OrderPaymentRow | null>();
     if (!order) {
@@ -98,6 +103,22 @@ export async function POST(req: Request) {
       return fail("PAYTECH_CURRENCY_NOT_SUPPORTED", "PayTech checkout requires XOF/FCFA.", 409);
     }
 
+    const city = await getCityByIdOrDefault(order.cityId);
+    const market = getMarketConfig(city);
+    const phoneCheck = normalizePayTechCustomerPhone(order.phone, {
+      cityCode: city.code,
+      country: city.country,
+      marketCode: market.marketCode,
+    });
+    if (!phoneCheck.ok) {
+      return fail("PAYTECH_PHONE_INVALID", phoneCheck.message, 400);
+    }
+    const routingProfile = resolvePayTechRoutingProfile({
+      cityCode: city.code,
+      country: city.country,
+      marketCode: market.marketCode,
+    });
+
     if (paymentStatus === "pending" && order.paytechPaymentUrl && order.paytechRefCommand) {
       return ok({
         paymentUrl: order.paytechPaymentUrl,
@@ -107,17 +128,35 @@ export async function POST(req: Request) {
     }
 
     const refCommand = buildRefCommand(order);
+    const paytechPayload = {
+      item_name: `OranjeEats order ${normalizeText(order.orderNumber, 40) || String(order._id)}`,
+      item_price: Math.round(Number(order.total || 0)),
+      ref_command: refCommand,
+      currency: "XOF" as const,
+      target_payment: routingProfile.targetPayment,
+      success_url: getPayTechDefaultSuccessUrl(),
+      cancel_url: getPayTechDefaultCancelUrl(),
+      ipn_url: buildWebhookUrl(req),
+    };
+    console.log("PayTech routing:", {
+      cityCode: String(city.code || "").trim().toUpperCase(),
+      target_payment: routingProfile.targetPayment,
+      normalizedPhone: phoneCheck.e164,
+      payload: paytechPayload,
+    });
     const paymentRequest = await createPayTechPayment({
-      itemName: `AishaFood order ${normalizeText(order.orderNumber, 40) || String(order._id)}`,
-      itemPrice: Math.round(Number(order.total || 0)),
+      itemName: paytechPayload.item_name,
+      itemPrice: paytechPayload.item_price,
       refCommand,
-      currency: "XOF",
-      successUrl: getPayTechDefaultSuccessUrl(),
-      cancelUrl: getPayTechDefaultCancelUrl(),
-      ipnUrl: buildWebhookUrl(req),
+      currency: paytechPayload.currency,
+      targetPayment: routingProfile.targetPayment,
+      successUrl: paytechPayload.success_url,
+      cancelUrl: paytechPayload.cancel_url,
+      ipnUrl: paytechPayload.ipn_url,
       customField: JSON.stringify({
         orderId: String(order._id),
         cityId: order.cityId ? String(order.cityId) : null,
+        customerPhone: phoneCheck.e164,
       }),
     });
 

@@ -37,6 +37,9 @@ type SettingsResponse = {
       preferredMethod?: string;
       details?: string;
       payoutContactName?: string;
+      accountName?: string;
+      accountNumber?: string;
+      notes?: string;
     };
     isManuallyPaused?: boolean;
     busyUntil?: string | null;
@@ -95,9 +98,10 @@ export default function MerchantSettingsPage() {
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState("8");
   const [prepMins, setPrepMins] = useState("15");
   const [autoAcceptOrders, setAutoAcceptOrders] = useState(false);
-  const [payoutMethod, setPayoutMethod] = useState("cash_collection");
-  const [payoutDetails, setPayoutDetails] = useState("");
-  const [payoutContactName, setPayoutContactName] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState("cash");
+  const [payoutAccountName, setPayoutAccountName] = useState("");
+  const [payoutAccountNumber, setPayoutAccountNumber] = useState("");
+  const [payoutNotes, setPayoutNotes] = useState("");
 
   const [timezone, setTimezone] = useState("");
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
@@ -154,9 +158,16 @@ export default function MerchantSettingsPage() {
       setDeliveryRadiusKm(String(json.business.deliveryRadiusKm || 8));
       setPrepMins(String(json.business.eta?.prepMins || 15));
       setAutoAcceptOrders(Boolean(json.business.autoAcceptOrders));
-      setPayoutMethod(String(json.business.payout?.preferredMethod || "cash_collection"));
-      setPayoutDetails(String(json.business.payout?.details || ""));
-      setPayoutContactName(String(json.business.payout?.payoutContactName || ""));
+      setPayoutMethod(String(json.business.payout?.preferredMethod || "cash"));
+      setPayoutAccountName(
+        String(
+          json.business.payout?.accountName ||
+            json.business.payout?.payoutContactName ||
+            ""
+        )
+      );
+      setPayoutAccountNumber(String(json.business.payout?.accountNumber || ""));
+      setPayoutNotes(String(json.business.payout?.notes || json.business.payout?.details || ""));
       setTimezone(String(json.business.hours?.timezone || market.defaultTimezone || ""));
       setIsManuallyPaused(Boolean(json.business.isManuallyPaused));
       setBusyUntil(json.business.busyUntil || null);
@@ -196,8 +207,11 @@ export default function MerchantSettingsPage() {
           },
           payout: {
             preferredMethod: payoutMethod,
-            details: payoutDetails,
-            payoutContactName,
+            details: payoutNotes,
+            payoutContactName: payoutAccountName,
+            accountName: payoutAccountName,
+            accountNumber: payoutAccountNumber,
+            notes: payoutNotes,
           },
           isManuallyPaused,
           hours: {
@@ -373,22 +387,29 @@ export default function MerchantSettingsPage() {
               onChange={(e) => setPayoutMethod(e.target.value)}
               className={INPUT_CLASS_NAME}
             >
-              <option value="cash_collection">cash_collection</option>
-              <option value="weekly_cashout">weekly_cashout</option>
+              <option value="cash">cash</option>
               <option value="bank_transfer">bank_transfer</option>
-              <option value="mobile_money">mobile_money</option>
+              <option value="orange_money">orange_money</option>
+              <option value="moov_money">moov_money</option>
+              <option value="wave">wave</option>
             </select>
             <input
               className={INPUT_CLASS_NAME}
-              value={payoutContactName}
-              onChange={(e) => setPayoutContactName(e.target.value)}
-              placeholder="Payout contact name"
+              value={payoutAccountName}
+              onChange={(e) => setPayoutAccountName(e.target.value)}
+              placeholder="Account holder name"
+            />
+            <input
+              className={INPUT_CLASS_NAME}
+              value={payoutAccountNumber}
+              onChange={(e) => setPayoutAccountNumber(e.target.value)}
+              placeholder="Payout phone/account number"
             />
             <textarea
               className={`${INPUT_CLASS_NAME} md:col-span-2`}
-              value={payoutDetails}
-              onChange={(e) => setPayoutDetails(e.target.value)}
-              placeholder="Bank details, mobile money account, or cash collection instructions"
+              value={payoutNotes}
+              onChange={(e) => setPayoutNotes(e.target.value)}
+              placeholder="Optional payout notes"
               rows={3}
             />
           </div>

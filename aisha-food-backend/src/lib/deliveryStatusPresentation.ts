@@ -59,6 +59,7 @@ export type CustomerDeliveryUi = {
   audience: "customer";
   deliveryMode: DeliveryMode;
   stageKey:
+    | "pending_payment"
     | "order_confirmed"
     | "being_prepared"
     | "waiting_driver"
@@ -335,6 +336,21 @@ export function getCustomerDeliveryUi(
   business?: DeliveryBusinessLike
 ): CustomerDeliveryUi {
   const shared = getDeliveryModePresentation(order, business);
+
+  if (shared.status === "pending_payment") {
+    return {
+      audience: "customer",
+      deliveryMode: shared.deliveryMode,
+      stageKey: "pending_payment",
+      stageLabel: "Paiement en attente",
+      stageHint: "Finalize your online payment to confirm this order.",
+      progressPct: 0,
+      driverAssigned: false,
+      pickupConfirmed: false,
+      outForDelivery: false,
+      arrivingSoon: false,
+    };
+  }
 
   if (shared.cancelled) {
     return {

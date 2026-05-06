@@ -29,9 +29,12 @@ type Body = {
     prepMins?: number;
   };
   payout?: {
-    preferredMethod?: "bank_transfer" | "mobile_money" | "cash_collection" | "weekly_cashout";
+    preferredMethod?: string;
     details?: string;
     payoutContactName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    notes?: string;
   };
   isManuallyPaused?: boolean;
   hours?: {
@@ -252,14 +255,26 @@ export async function PATCH(req: Request) {
       const preferredMethod = String(body.payout?.preferredMethod || "").trim();
       if (
         preferredMethod &&
-        !["bank_transfer", "mobile_money", "cash_collection", "weekly_cashout"].includes(preferredMethod)
+        !["orange_money", "moov_money", "wave", "bank_transfer", "cash"].includes(preferredMethod)
       ) {
         return fail("VALIDATION_ERROR", "payout.preferredMethod is invalid.", 400);
       }
+      const accountName = String(
+        body.payout?.accountName || body.payout?.payoutContactName || ""
+      )
+        .trim()
+        .slice(0, 120);
+      const accountNumber = String(body.payout?.accountNumber || "").trim().slice(0, 120);
+      const notes = String(body.payout?.notes || body.payout?.details || "")
+        .trim()
+        .slice(0, 400);
       set.payout = {
-        preferredMethod: preferredMethod || "cash_collection",
-        details: String(body.payout?.details || "").trim().slice(0, 400),
-        payoutContactName: String(body.payout?.payoutContactName || "").trim().slice(0, 120),
+        preferredMethod: preferredMethod || "cash",
+        details: notes,
+        payoutContactName: accountName,
+        accountName,
+        accountNumber,
+        notes,
       };
     }
 

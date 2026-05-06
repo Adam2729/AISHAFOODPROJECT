@@ -1,4 +1,5 @@
 export type OrderStatus =
+  | "pending_payment"
   | "new"
   | "accepted"
   | "preparing"
@@ -8,6 +9,7 @@ export type OrderStatus =
   | "cancelled";
 
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pending_payment: [],
   new: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
   preparing: ["ready", "cancelled"],
@@ -27,6 +29,7 @@ export function isFinalStatus(status: OrderStatus): boolean {
 
 export function isOrderStatus(value: string): value is OrderStatus {
   return (
+    value === "pending_payment" ||
     value === "new" ||
     value === "accepted" ||
     value === "preparing" ||

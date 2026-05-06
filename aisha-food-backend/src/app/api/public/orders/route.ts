@@ -316,17 +316,23 @@ export async function POST(req: Request) {
         "mobile_money",
         "mobilemoney",
         "orange_money",
+        "orange_money_ml",
+        "orange_money_sn",
         "orangemoney",
         "wave",
         "moov_money",
+        "moov_money_ml",
         "moovmoney",
+        "card",
+        "carte",
+        "carte_bancaire",
         "paytech",
       ].includes(paymentMethodRaw)
     ) {
       return finish(
         fail(
           "VALIDATION_ERROR",
-          "paymentMethod must be cash, orange_money, wave, moov_money, mobile_money, or paytech.",
+          "paymentMethod must be cash, orange_money_ml, orange_money_sn, wave, moov_money_ml, mobile_money, card, or paytech.",
           400
         ),
         400,
@@ -842,6 +848,7 @@ export async function POST(req: Request) {
     const commissionAmount = roundCurrency(subtotalAfter * commissionRate);
     const deliveryFeeToCustomer = roundCurrency(Number(deliveryFeeQuote.fee || 0));
     const total = roundCurrency(subtotalAfter + deliveryFeeToCustomer);
+    const initialOrderStatus = isPayTechPayment ? "pending_payment" : "new";
     const platformCommissionAmount = commissionAmount;
     const restaurantNetAmount = roundCurrency(Math.max(0, total - platformCommissionAmount));
     const driverPayoutAmount = roundCurrency(Number(deliveryFeeQuote.payoutToRider || 0));
@@ -905,7 +912,7 @@ export async function POST(req: Request) {
           paytechWebhookPayload: null,
           failedAt: null,
           promoCode: discountSource === "promo" ? discountCode : null,
-          status: "new",
+          status: initialOrderStatus,
           benefitsApplied: false,
           discount: {
             source: discountSource,
@@ -1084,7 +1091,7 @@ export async function POST(req: Request) {
             orderId: String(created._id),
             orderNumber: created.orderNumber,
             status: created.status,
-            statusLabelEs: statusLabelEs("new"),
+            statusLabelEs: statusLabelEs(created.status),
             payment: {
               method: paymentMethod,
               status: "pending",

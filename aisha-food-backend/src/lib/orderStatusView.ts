@@ -2,6 +2,8 @@ import type { OrderStatus } from "@/lib/orderStatus";
 
 export function statusLabelEs(status: OrderStatus): string {
   switch (status) {
+    case "pending_payment":
+      return "Pago en espera";
     case "new":
       return "Esperando confirmacion";
     case "accepted":
@@ -23,6 +25,8 @@ export function statusLabelEs(status: OrderStatus): string {
 
 export function statusProgressPct(status: OrderStatus): number {
   switch (status) {
+    case "pending_payment":
+      return 0;
     case "new":
       return 0;
     case "accepted":
@@ -44,6 +48,8 @@ export function statusProgressPct(status: OrderStatus): number {
 
 export function statusHintEs(status: OrderStatus): string {
   switch (status) {
+    case "pending_payment":
+      return "Finaliza el pago en linea para confirmar tu pedido.";
     case "new":
       return "Esperando que el negocio confirme tu pedido.";
     case "accepted":

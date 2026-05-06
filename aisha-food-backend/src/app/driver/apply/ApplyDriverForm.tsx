@@ -46,6 +46,10 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
   const [vehicleType, setVehicleType] = useState("motorbike");
   const [availability, setAvailability] = useState("flexible");
   const [zoneLabel, setZoneLabel] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState("cash");
+  const [payoutAccountName, setPayoutAccountName] = useState("");
+  const [payoutAccountNumber, setPayoutAccountNumber] = useState("");
+  const [payoutNotes, setPayoutNotes] = useState("");
   const [idDocumentUrl, setIdDocumentUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -96,8 +100,10 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
       !cityId ||
       !fullName.trim() ||
       !phone.trim() ||
-      !email.trim(),
-    [cityId, email, fullName, loadingCities, phone, submitting, submittedSuccessfully]
+      !email.trim() ||
+      !payoutAccountName.trim() ||
+      !payoutAccountNumber.trim(),
+    [cityId, email, fullName, loadingCities, payoutAccountName, payoutAccountNumber, phone, submitting, submittedSuccessfully]
   );
 
   function resetApplicationFlow() {
@@ -112,6 +118,10 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
     setVehicleType("motorbike");
     setAvailability("flexible");
     setZoneLabel("");
+    setPayoutMethod("cash");
+    setPayoutAccountName("");
+    setPayoutAccountNumber("");
+    setPayoutNotes("");
     setIdDocumentUrl("");
     setNotes("");
   }
@@ -135,6 +145,10 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
           email,
           vehicleType,
           availability,
+          payoutMethod,
+          payoutAccountName,
+          payoutAccountNumber,
+          payoutNotes,
           idDocumentUrl,
           zoneLabel,
           notes,
@@ -305,6 +319,52 @@ export default function ApplyDriverForm({ cityId: initialCityId, referralCode }:
             value={zoneLabel}
             onChange={(event) => setZoneLabel(event.target.value)}
             placeholder="Neighborhood or zone"
+            className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          Preferred payout method
+          <select
+            value={payoutMethod}
+            onChange={(event) => setPayoutMethod(String(event.target.value || "cash"))}
+            className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none"
+          >
+            <option value="orange_money">Orange Money</option>
+            <option value="moov_money">Moov Money</option>
+            <option value="wave">Wave</option>
+            <option value="bank_transfer">Bank transfer</option>
+            <option value="cash">Cash</option>
+          </select>
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          Account holder name
+          <input
+            value={payoutAccountName}
+            onChange={(event) => setPayoutAccountName(event.target.value)}
+            placeholder="Driver full name"
+            className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          Payout phone/account number
+          <input
+            value={payoutAccountNumber}
+            onChange={(event) => setPayoutAccountNumber(event.target.value)}
+            placeholder="+22370000000"
+            className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          Payout notes
+          <textarea
+            value={payoutNotes}
+            onChange={(event) => setPayoutNotes(event.target.value)}
+            placeholder="Optional payout instructions"
+            rows={3}
             className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
           />
         </label>

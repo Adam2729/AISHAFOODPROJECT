@@ -1023,6 +1023,12 @@ export default async function AdminOpsPage({
             Settlements
           </Link>
           <Link
+            href="/admin/payouts"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+          >
+            Payouts
+          </Link>
+          <Link
             href="/admin/promos"
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
           >

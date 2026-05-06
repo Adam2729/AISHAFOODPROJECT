@@ -35,6 +35,12 @@ type DriverDoc = {
   cityId?: mongoose.Types.ObjectId | null;
   zoneLabel?: string | null;
   notes?: string | null;
+  payout?: {
+    preferredMethod?: string | null;
+    accountName?: string | null;
+    accountNumber?: string | null;
+    notes?: string | null;
+  } | null;
   phoneE164?: string | null;
   phoneHash?: string | null;
   auth?: {
@@ -152,6 +158,10 @@ function toDriverRow(driver: DriverDoc, activeAssignedOrderCount = 0) {
     cityId: driver.cityId ? String(driver.cityId) : null,
     zoneLabel: String(driver.zoneLabel || "").trim() || null,
     notes: String(driver.notes || "").trim() || null,
+    payoutMethod: String(driver.payout?.preferredMethod || "").trim() || null,
+    payoutAccountName: String(driver.payout?.accountName || "").trim() || null,
+    payoutAccountNumber: String(driver.payout?.accountNumber || "").trim() || null,
+    payoutNotes: String(driver.payout?.notes || "").trim() || null,
     hasPhone: Boolean(phoneRaw),
     phoneMasked: phoneRaw ? maskPhone(phoneRaw) : null,
     isTestLike: isLikelyTestDriver(driver),
@@ -198,6 +208,7 @@ export async function GET(req: Request) {
     const drivers = await Driver.find(filter)
       .select(
         "_id name email phoneE164 phoneHash cityId isActive isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
+        + " payout"
       )
       .sort({ createdAt: -1 })
       .limit(limit)

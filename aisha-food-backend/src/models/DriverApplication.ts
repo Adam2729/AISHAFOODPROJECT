@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { PAYOUT_METHODS } from "@/lib/merchantOnboarding";
 
 const DriverApplicationSchema = new mongoose.Schema(
   {
@@ -19,6 +20,14 @@ const DriverApplicationSchema = new mongoose.Schema(
     zoneLabel: { type: String, default: null, trim: true, maxlength: 80 },
     vehicleType: { type: String, default: null, trim: true, maxlength: 40 },
     availability: { type: String, default: null, trim: true, maxlength: 80 },
+    payoutMethod: {
+      type: String,
+      enum: PAYOUT_METHODS,
+      default: "cash",
+    },
+    payoutAccountName: { type: String, default: "", trim: true, maxlength: 120 },
+    payoutAccountNumber: { type: String, default: "", trim: true, maxlength: 120 },
+    payoutNotes: { type: String, default: "", trim: true, maxlength: 400 },
     documentsStatus: { type: String, default: null, trim: true, maxlength: 40 },
     idDocumentUrl: { type: String, default: null, trim: true, maxlength: 500 },
     referredByCode: { type: String, default: null, trim: true, uppercase: true, maxlength: 24 },
@@ -63,6 +72,10 @@ if (existingDriverApplicationModel) {
     !existingSchema.path?.("city") ||
     !existingSchema.path?.("vehicleType") ||
     !existingSchema.path?.("availability") ||
+    !existingSchema.path?.("payoutMethod") ||
+    !existingSchema.path?.("payoutAccountName") ||
+    !existingSchema.path?.("payoutAccountNumber") ||
+    !existingSchema.path?.("payoutNotes") ||
     !existingSchema.path?.("documentsStatus") ||
     !existingSchema.path?.("idDocumentUrl") ||
     !existingSchema.path?.("referredByCode") ||

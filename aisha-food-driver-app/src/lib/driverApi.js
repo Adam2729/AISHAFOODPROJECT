@@ -30,6 +30,8 @@ const DRIVER_API_PATHS = {
   orderException: (orderId) => `/api/driver/orders/${encodeURIComponent(orderId)}/exception`,
   location: "/api/driver/location",
   earnings: "/api/driver/earnings",
+  payouts: "/api/driver/payouts",
+  requestPayout: "/api/driver/payouts/request",
   profile: "/api/driver/profile",
   status: "/api/driver/status",
   online: "/api/driver/online",
@@ -674,6 +676,10 @@ export async function signupDriverApplication({
   zoneLabel,
   vehicleType,
   availability,
+  payoutMethod,
+  payoutAccountName,
+  payoutAccountNumber,
+  payoutNotes,
 }) {
   try {
     const response = await publicApi.post(DRIVER_API_PATHS.signup, {
@@ -684,6 +690,10 @@ export async function signupDriverApplication({
       zoneLabel: String(zoneLabel || "").trim(),
       vehicleType: String(vehicleType || "").trim(),
       availability: String(availability || "").trim(),
+      payoutMethod: String(payoutMethod || "").trim(),
+      payoutAccountName: String(payoutAccountName || "").trim(),
+      payoutAccountNumber: String(payoutAccountNumber || "").trim(),
+      payoutNotes: String(payoutNotes || "").trim(),
     });
     return readPayload(response);
   } catch (error) {
@@ -939,6 +949,24 @@ export async function fetchDriverEarnings() {
     return normalizeEarningsSummary(readPayload(response));
   } catch (error) {
     throw normalizeRequestError(error, "Unable to load earnings.");
+  }
+}
+
+export async function fetchDriverPayouts() {
+  try {
+    const response = await authenticatedApi.get(DRIVER_API_PATHS.payouts);
+    return readPayload(response) || {};
+  } catch (error) {
+    throw normalizeRequestError(error, "Unable to load payout requests.");
+  }
+}
+
+export async function requestDriverPayout() {
+  try {
+    const response = await authenticatedApi.post(DRIVER_API_PATHS.requestPayout, {});
+    return readPayload(response) || {};
+  } catch (error) {
+    throw normalizeRequestError(error, "Unable to request payout.");
   }
 }
 

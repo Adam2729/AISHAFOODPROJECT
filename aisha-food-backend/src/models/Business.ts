@@ -98,10 +98,13 @@ const BusinessSchema = new Schema(
       preferredMethod: {
         type: String,
         enum: PAYOUT_METHODS,
-        default: "cash_collection",
+        default: "cash",
       },
       details: { type: String, default: "", trim: true, maxlength: 400 },
       payoutContactName: { type: String, default: "", trim: true, maxlength: 120 },
+      accountName: { type: String, default: "", trim: true, maxlength: 120 },
+      accountNumber: { type: String, default: "", trim: true, maxlength: 120 },
+      notes: { type: String, default: "", trim: true, maxlength: 400 },
     },
     deliveryPolicy: {
       mode: {
@@ -236,6 +239,9 @@ if (existingBusinessModel) {
     !existingSchema.path?.("deliveryRadiusKm") ||
     !existingSchema.path?.("autoAcceptOrders") ||
     !existingSchema.path?.("payout") ||
+    !existingSchema.path?.("payout.accountName") ||
+    !existingSchema.path?.("payout.accountNumber") ||
+    !existingSchema.path?.("payout.notes") ||
     !existingSchema.path?.("referralCode") ||
     !existingSchema.path?.("referredByCode") ||
     !existingSchema.path?.("promotionCredits") ||

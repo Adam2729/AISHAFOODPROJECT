@@ -22,17 +22,23 @@ export function normalizePaymentMethod(value: unknown, fallback: PaymentMethod =
   if (normalized === "cash") return "cash";
   if (
     normalized === "orange_money" ||
+    normalized === "orange_money_ml" ||
+    normalized === "orange_money_sn" ||
     normalized === "orangemoney" ||
     normalized === "wave" ||
     normalized === "wavemoney" ||
     normalized === "moov_money" ||
-    normalized === "moovmoney"
+    normalized === "moov_money_ml" ||
+    normalized === "moovmoney" ||
+    normalized === "mobile_money" ||
+    normalized === "mobilemoney" ||
+    normalized === "card" ||
+    normalized === "carte" ||
+    normalized === "carte_bancaire"
   ) {
     return "paytech";
   }
-  if (normalized === "mobile_money" || normalized === "mobilemoney") return "mobile_money";
   if (normalized === "wallet") return "wallet";
-  if (normalized === "card") return "card";
   if (normalized === "paytech") return "paytech";
   return fallback;
 }
@@ -107,9 +113,10 @@ export function citySupportsPaymentMethod(
   const cityCode = String(city.code || "").trim().toUpperCase();
   const country = String(city.country || "").trim().toLowerCase();
   const isBamakoMarket = cityCode === "BKO" || country === "mali";
+  const isSenegalMarket = cityCode === "DKR" || cityCode === "SN" || country === "senegal";
   if (!methods.length) {
     if (method === "cash") return true;
-    if (isBamakoMarket && (method === "mobile_money" || method === "paytech")) {
+    if ((isBamakoMarket || isSenegalMarket) && (method === "mobile_money" || method === "paytech")) {
       return true;
     }
     return false;
@@ -117,28 +124,60 @@ export function citySupportsPaymentMethod(
 
   const normalized = methods.map(normalizeCityPaymentMethod);
   const hasDigitalMethod = normalized.some((value) =>
-    ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney", "paytech"].includes(value)
+    [
+      "mobilemoney",
+      "orangemoney",
+      "orangemoneyml",
+      "orangemoneysn",
+      "moovmoney",
+      "moovmoneyml",
+      "wave",
+      "wavemoney",
+      "paytech",
+      "card",
+    ].includes(value)
   );
   if (method === "cash") {
     return normalized.includes("cash");
   }
-  if (isBamakoMarket && !hasDigitalMethod && (method === "mobile_money" || method === "paytech")) {
+  if ((isBamakoMarket || isSenegalMarket) && !hasDigitalMethod && (method === "mobile_money" || method === "paytech")) {
     return true;
   }
   if (method === "mobile_money") {
     return normalized.some((value) =>
-      ["mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney", "paytech"].includes(value)
+      [
+        "mobilemoney",
+        "orangemoney",
+        "orangemoneyml",
+        "orangemoneysn",
+        "moovmoney",
+        "moovmoneyml",
+        "wave",
+        "wavemoney",
+        "paytech",
+      ].includes(value)
     );
   }
   if (method === "wallet") {
     return normalized.includes("wallet");
   }
   if (method === "card") {
-    return normalized.includes("card");
+    return normalized.includes("card") || normalized.includes("paytech");
   }
   if (method === "paytech") {
     return normalized.some((value) =>
-      ["paytech", "mobilemoney", "orangemoney", "moovmoney", "wave", "wavemoney"].includes(value)
+      [
+        "paytech",
+        "card",
+        "mobilemoney",
+        "orangemoney",
+        "orangemoneyml",
+        "orangemoneysn",
+        "moovmoney",
+        "moovmoneyml",
+        "wave",
+        "wavemoney",
+      ].includes(value)
     );
   }
   return false;

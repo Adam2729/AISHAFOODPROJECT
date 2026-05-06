@@ -27,7 +27,11 @@ export async function GET(req: Request) {
       .select("deliveryType")
       .lean<{ deliveryType?: string | null } | null>();
     const filter: Record<string, unknown> = { businessId: new mongoose.Types.ObjectId(session.businessId) };
-    if (status) filter.status = status;
+    if (status) {
+      filter.status = status;
+    } else {
+      filter.status = { $ne: "pending_payment" };
+    }
 
     const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
     const nowMs = Date.now();

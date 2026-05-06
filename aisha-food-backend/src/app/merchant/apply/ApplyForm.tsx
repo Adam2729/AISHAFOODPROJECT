@@ -10,6 +10,7 @@ import {
   getDeliveryTypeLabel,
   getMerchantTypeDescription,
   getMerchantTypeLabel,
+  getPayoutMethodLabel,
   normalizeMerchantType,
   type ActiveMerchantType,
   type DeliveryType,
@@ -75,7 +76,9 @@ type ApplyState = {
   legalIdNumber: string;
   businessRegistrationNumber: string;
   payoutMethod: PayoutMethod;
-  payoutDetails: string;
+  payoutAccountName: string;
+  payoutAccountNumber: string;
+  payoutNotes: string;
   notes: string;
 };
 
@@ -113,8 +116,10 @@ const INITIAL_STATE: ApplyState = {
   coverImageUrl: "",
   legalIdNumber: "",
   businessRegistrationNumber: "",
-  payoutMethod: "cash_collection",
-  payoutDetails: "",
+  payoutMethod: "cash",
+  payoutAccountName: "",
+  payoutAccountNumber: "",
+  payoutNotes: "",
   notes: "",
 };
 
@@ -295,7 +300,12 @@ export default function ApplyForm({
       case 3:
         return Boolean(form.openingHoursText.trim() && Number(form.averagePrepMinutes) >= 0);
       case 4:
-        return Boolean(form.deliveryType && form.payoutMethod);
+        return Boolean(
+          form.deliveryType &&
+            form.payoutMethod &&
+            form.payoutAccountName.trim() &&
+            form.payoutAccountNumber.trim()
+        );
       default:
         return true;
     }
@@ -340,7 +350,9 @@ export default function ApplyForm({
           legalIdNumber: form.legalIdNumber,
           businessRegistrationNumber: form.businessRegistrationNumber,
           payoutMethod: form.payoutMethod,
-          payoutDetails: form.payoutDetails,
+          payoutAccountName: form.payoutAccountName,
+          payoutAccountNumber: form.payoutAccountNumber,
+          payoutNotes: form.payoutNotes,
           referredByCode: referralCode || undefined,
           notes: form.notes,
         }),
@@ -760,15 +772,27 @@ export default function ApplyForm({
             >
               {PAYOUT_METHODS.map((method) => (
                 <option key={method} value={method}>
-                  {method}
+                  {getPayoutMethodLabel(method)}
                 </option>
               ))}
             </select>
+            <input
+              value={form.payoutAccountName}
+              onChange={(event) => update("payoutAccountName", event.target.value)}
+              placeholder="Account holder name"
+              className={INPUT_CLASS_NAME}
+            />
+            <input
+              value={form.payoutAccountNumber}
+              onChange={(event) => update("payoutAccountNumber", event.target.value)}
+              placeholder="Payout phone/account number"
+              className={INPUT_CLASS_NAME}
+            />
             <textarea
-              value={form.payoutDetails}
-              onChange={(event) => update("payoutDetails", event.target.value)}
+              value={form.payoutNotes}
+              onChange={(event) => update("payoutNotes", event.target.value)}
               rows={3}
-              placeholder="Bank account, mobile money, or cash collection instructions"
+              placeholder="Optional payout notes"
               className={`${INPUT_CLASS_NAME} min-h-[120px] resize-y`}
             />
             <label className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-700">
@@ -818,7 +842,9 @@ export default function ApplyForm({
                     : "Self delivery"}
                 </p>
                 <p>{getDeliveryTypeLabel(form.deliveryType)}</p>
-                <p>{form.payoutMethod}</p>
+                <p>{getPayoutMethodLabel(form.payoutMethod)}</p>
+                <p>{form.payoutAccountName || "No payout account name"}</p>
+                <p>{form.payoutAccountNumber || "No payout account number"}</p>
                 <p>{form.acceptsPayTech ? "PayTech requested" : "PayTech not requested"}</p>
               </div>
               <div>

@@ -33,6 +33,10 @@ export default function DriverSignupScreen() {
   const [zoneLabel, setZoneLabel] = useState("");
   const [vehicleType, setVehicleType] = useState("motorbike");
   const [availability, setAvailability] = useState("flexible");
+  const [payoutMethod, setPayoutMethod] = useState("cash");
+  const [payoutAccountName, setPayoutAccountName] = useState("");
+  const [payoutAccountNumber, setPayoutAccountNumber] = useState("");
+  const [payoutNotes, setPayoutNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(null);
@@ -44,9 +48,11 @@ export default function DriverSignupScreen() {
           String(phone || "").trim() &&
           String(email || "").trim() &&
           String(password || "").trim().length >= 6 &&
-          String(zoneLabel || "").trim()
+          String(zoneLabel || "").trim() &&
+          String(payoutAccountName || "").trim() &&
+          String(payoutAccountNumber || "").trim()
       ),
-    [email, fullName, password, phone, zoneLabel]
+    [email, fullName, password, payoutAccountName, payoutAccountNumber, phone, zoneLabel]
   );
 
   async function handleSubmit() {
@@ -62,6 +68,10 @@ export default function DriverSignupScreen() {
         zoneLabel,
         vehicleType,
         availability,
+        payoutMethod,
+        payoutAccountName,
+        payoutAccountNumber,
+        payoutNotes,
       });
       setSuccess({
         applicationId: String(response?.applicationId || "").trim(),
@@ -81,6 +91,10 @@ export default function DriverSignupScreen() {
     setZoneLabel("");
     setVehicleType("motorbike");
     setAvailability("flexible");
+    setPayoutMethod("cash");
+    setPayoutAccountName("");
+    setPayoutAccountNumber("");
+    setPayoutNotes("");
     setError("");
     setSuccess(null);
     setSubmitting(false);
@@ -223,6 +237,54 @@ export default function DriverSignupScreen() {
               ))}
             </View>
 
+            <Text style={styles.label}>Preferred payout method</Text>
+            <View style={styles.chipRow}>
+              {[
+                ["orange_money", "Orange Money"],
+                ["moov_money", "Moov Money"],
+                ["wave", "Wave"],
+                ["bank_transfer", "Bank transfer"],
+                ["cash", "Cash"],
+              ].map(([value, label]) => (
+                <SelectChip
+                  key={value}
+                  active={payoutMethod === value}
+                  label={label}
+                  onPress={() => setPayoutMethod(value)}
+                />
+              ))}
+            </View>
+
+            <Text style={styles.label}>Account holder name</Text>
+            <TextInput
+              value={payoutAccountName}
+              onChangeText={setPayoutAccountName}
+              placeholder="Driver full name"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Payout phone/account number</Text>
+            <TextInput
+              value={payoutAccountNumber}
+              onChangeText={setPayoutAccountNumber}
+              keyboardType="phone-pad"
+              placeholder="+22370000000"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Payout notes</Text>
+            <TextInput
+              value={payoutNotes}
+              onChangeText={setPayoutNotes}
+              placeholder="Optional payout instructions"
+              placeholderTextColor="#94A3B8"
+              style={[styles.input, styles.textArea]}
+              multiline
+              textAlignVertical="top"
+            />
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable
@@ -302,6 +364,10 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     backgroundColor: "#FFFFFF",
     fontSize: 15,
+  },
+  textArea: {
+    minHeight: 104,
+    paddingTop: 14,
   },
   chipRow: {
     flexDirection: "row",

@@ -197,33 +197,39 @@ export default function AdminDashboardPage() {
   const operations = useMemo(
     () => [
       {
-        href: "/admin/merchant-applications",
-        title: "Review Merchant Applications",
-        description: "Approve or reject incoming restaurant applications.",
-        tone: "emerald" as const,
+        href: "/admin/ops",
+        title: "Orders",
+        description: "Investigate live order flow, incidents, and operational controls.",
+        tone: "slate" as const,
       },
       {
-        href: "/admin/driver-applications",
-        title: "Review Driver Applications",
-        description: "Approve driver signups and issue account access.",
-        tone: "amber" as const,
+        href: "/admin/merchant-applications",
+        title: "Merchant Onboarding",
+        description: "Approve or reject incoming restaurant applications.",
+        tone: "emerald" as const,
       },
       {
         href: "/admin/drivers",
         title: "Driver Operations",
         description: "Manage approved drivers, login links, and dispatch support.",
+        tone: "amber" as const,
+      },
+      {
+        href: "/admin/payouts#restaurant-settlements",
+        title: "Restaurant Settlements",
+        description: "Review daily merchant settlement summaries and mark payouts paid.",
         tone: "slate" as const,
       },
       {
-        href: "/admin/onboarding",
-        title: "Merchant Onboarding",
-        description: "Create merchant accounts and complete onboarding setup.",
+        href: "/admin/payouts#driver-payout-requests",
+        title: "Driver Payout Requests",
+        description: "Approve, reject, and pay manual driver payout requests.",
         tone: "slate" as const,
       },
       {
         href: "/admin/ops",
-        title: "Ops Center",
-        description: "Review incidents, operational controls, and launch blockers.",
+        title: "PayTech Payments",
+        description: "Inspect payment gating, webhook flow, and payment-side incidents.",
         tone: "slate" as const,
       },
       {
@@ -236,12 +242,6 @@ export default function AdminDashboardPage() {
         href: "/admin/ads",
         title: "Sponsored Ads",
         description: "Monitor paid placement controls and campaign surfaces.",
-        tone: "slate" as const,
-      },
-      {
-        href: "/admin/incentives",
-        title: "Driver Incentives",
-        description: "Review bonus structures and incentive levers.",
         tone: "slate" as const,
       },
       {
@@ -266,7 +266,7 @@ export default function AdminDashboardPage() {
         <div className="mx-auto flex min-h-screen max-w-7xl items-center px-6 py-12">
           <div className="w-full rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-500">
-              AishaFood Admin
+              OranjeEats Admin
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
               Loading dashboard
@@ -326,7 +326,7 @@ export default function AdminDashboardPage() {
                   Marketplace Control Panel
                 </div>
                 <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                  AishaFood Admin
+                  OranjeEats Admin
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                   Monitor launch readiness, commercial performance, and operational queues from one
@@ -718,27 +718,27 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-[28px] border border-amber-200 bg-amber-50/80 p-5 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">
-                    Driver operations
+                    Restaurant settlements
                   </p>
                   <h3 className="mt-3 text-xl font-semibold text-slate-950">
-                    Approval and dispatch tools
+                    Daily payout control
                   </h3>
                   <p className="mt-3 text-sm leading-6 text-slate-700">
-                    Approve driver applications, activate accounts, and manage login links without
-                    exposing raw operational tokens on the dashboard.
+                    Review one daily settlement per merchant, edit payout account details safely,
+                    and mark manual payouts paid only after a real transfer reference exists.
                   </p>
                   <div className="mt-5 flex flex-wrap gap-3">
                     <Link
-                      href="/admin/drivers"
+                      href="/admin/payouts#restaurant-settlements"
                       className="inline-flex items-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-100"
                     >
-                      Open driver operations
+                      Open settlement desk
                     </Link>
                     <Link
-                      href="/admin/driver-applications"
+                      href="/admin/payouts#driver-payout-requests"
                       className="inline-flex items-center rounded-2xl border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
                     >
-                      Review driver applications
+                      Review driver payouts
                     </Link>
                   </div>
                 </div>

@@ -20,6 +20,9 @@ type ApplicationRow = {
   cuisineType?: string;
   storeCategory?: string;
   payoutMethod?: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutNotes?: string;
   notes?: string;
   status: string;
   createdAt?: string | null;
@@ -107,12 +110,14 @@ function payoutLabel(value: string | undefined) {
   switch (String(value || "").trim()) {
     case "bank_transfer":
       return "Bank transfer";
-    case "mobile_money":
-      return "Mobile money";
-    case "weekly_cashout":
-      return "Weekly cashout";
-    case "cash_collection":
-      return "Cash collection";
+    case "orange_money":
+      return "Orange Money";
+    case "moov_money":
+      return "Moov Money";
+    case "wave":
+      return "Wave";
+    case "cash":
+      return "Cash";
     default:
       return "-";
   }
@@ -625,6 +630,9 @@ export default function AdminMerchantApplicationsPage() {
                     value={selected.acceptsPayTech ? "Requested" : "Not requested"}
                   />
                   <DetailRow label="Payout" value={payoutLabel(selected.payoutMethod)} />
+                  <DetailRow label="Account name" value={selected.payoutAccountName} />
+                  <DetailRow label="Account number" value={selected.payoutAccountNumber} />
+                  <DetailRow label="Payout notes" value={selected.payoutNotes} />
                 </dl>
               </section>
 

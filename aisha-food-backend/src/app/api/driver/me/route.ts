@@ -29,6 +29,7 @@ export async function GET(req: Request) {
         phone: String((driver as { phoneE164?: string | null }).phoneE164 || ""),
         email: String((driver as { email?: string | null }).email || ""),
         vehicleType: String((driver as { vehicleType?: string | null }).vehicleType || ""),
+        payout: (driver as { payout?: unknown }).payout || null,
         status: driver.isBanned ? "banned" : driver.pausedAt ? "paused" : driver.isActive ? "active" : "inactive",
         accountStatus: driver.isBanned ? "banned" : driver.pausedAt ? "paused" : driver.isActive ? "active" : "inactive",
         zoneLabel: String(driver.zoneLabel || "").trim() || null,

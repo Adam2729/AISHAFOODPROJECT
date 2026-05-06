@@ -14,6 +14,7 @@ type PayTechRequestInput = {
   itemPrice: number;
   refCommand: string;
   currency?: "XOF";
+  targetPayment?: string | null;
   successUrl?: string | null;
   cancelUrl?: string | null;
   ipnUrl?: string | null;
@@ -43,8 +44,30 @@ type NormalizedPayTechStatus = {
   rawStatus: string | null;
 };
 
+type PayTechRoutingInput = {
+  cityCode?: unknown;
+  marketCode?: unknown;
+  country?: unknown;
+  launchCityCode?: unknown;
+};
+
+type PayTechRoutingProfile = {
+  region: "mali" | "senegal";
+  countryCode: "+223" | "+221";
+  targetPayment: string;
+  paymentMethods: string[];
+};
+
 function normalizeText(value: unknown, max = 2000) {
   return String(value || "").trim().slice(0, max);
+}
+
+function normalizeUpper(value: unknown, max = 64) {
+  return normalizeText(value, max).toUpperCase();
+}
+
+function normalizeLower(value: unknown, max = 64) {
+  return normalizeText(value, max).toLowerCase();
 }
 
 function firstText(values: unknown[], max = 2000) {
@@ -82,6 +105,93 @@ function normalizePayTechBaseUrl() {
   return normalizeText(ENV_PAYTECH_BASE_URL).replace(/\/+$/, "") || "https://paytech.sn/api";
 }
 
+export function resolvePayTechRoutingProfile(input?: PayTechRoutingInput): PayTechRoutingProfile {
+  const cityCode = normalizeUpper(input?.cityCode);
+  const marketCode = normalizeUpper(input?.marketCode);
+  const country = normalizeLower(input?.country);
+  const launchCityCode =
+    normalizeUpper(input?.launchCityCode) || normalizeUpper(process.env.LAUNCH_CITY_CODE);
+
+  const isSenegal =
+    cityCode === "SN" ||
+    cityCode === "DKR" ||
+    marketCode === "SN" ||
+    country === "senegal";
+  const isMali =
+    cityCode === "BKO" ||
+    marketCode === "ML" ||
+    country === "mali" ||
+    launchCityCode === "BKO";
+
+  if (isSenegal && !isMali) {
+    return {
+      region: "senegal",
+      countryCode: "+221",
+      targetPayment: "Orange Money,Wave,Carte Bancaire",
+      paymentMethods: ["orange_money_sn", "wave", "paytech", "card"],
+    };
+  }
+
+  return {
+    region: "mali",
+    countryCode: "+223",
+    targetPayment: "Orange Money ML,Moov Money ML,Wave",
+    paymentMethods: ["orange_money_ml", "moov_money_ml", "wave", "paytech"],
+  };
+}
+
+export function normalizePayTechCustomerPhone(
+  phone: unknown,
+  input?: PayTechRoutingInput
+) {
+  const profile = resolvePayTechRoutingProfile(input);
+  const digits = normalizeText(phone, 40).replace(/\D+/g, "");
+
+  if (profile.region === "mali") {
+    if (digits.startsWith("221")) {
+      return {
+        ok: false as const,
+        e164: "",
+        profile,
+        message: "Veuillez entrer un numéro mobile money malien valide.",
+      };
+    }
+    if (digits.startsWith("223") && digits.length === 11) {
+      return { ok: true as const, e164: `+${digits}`, profile, message: "" };
+    }
+    if (digits.length === 8) {
+      return { ok: true as const, e164: `+223${digits}`, profile, message: "" };
+    }
+    return {
+      ok: false as const,
+      e164: "",
+      profile,
+      message: "Veuillez entrer un numéro mobile money malien valide.",
+    };
+  }
+
+  if (digits.startsWith("223")) {
+    return {
+      ok: false as const,
+      e164: "",
+      profile,
+      message: "Veuillez entrer un numéro mobile money sénégalais valide.",
+    };
+  }
+  if (digits.startsWith("221") && digits.length === 12) {
+    return { ok: true as const, e164: `+${digits}`, profile, message: "" };
+  }
+  if (digits.length === 9) {
+    return { ok: true as const, e164: `+221${digits}`, profile, message: "" };
+  }
+  return {
+    ok: false as const,
+    e164: "",
+    profile,
+    message: "Veuillez entrer un numéro mobile money sénégalais valide.",
+  };
+}
+
 function extractPaymentUrl(payload: Record<string, unknown>) {
   return firstText(
     [
@@ -116,6 +226,7 @@ export async function createPayTechPayment(
   const refCommand = normalizeText(input.refCommand, 120);
   const itemPrice = Math.round(Number(input.itemPrice || 0));
   const currency = input.currency || "XOF";
+  const targetPayment = normalizeText(input.targetPayment, 200);
   const successUrl = normalizeText(input.successUrl || getPayTechDefaultSuccessUrl(), 1200);
   const cancelUrl = normalizeText(input.cancelUrl || getPayTechDefaultCancelUrl(), 1200);
   const ipnUrl = normalizeText(input.ipnUrl, 1200);
@@ -155,6 +266,7 @@ export async function createPayTechPayment(
       item_price: itemPrice,
       ref_command: refCommand,
       currency,
+      target_payment: targetPayment || undefined,
       env: ENV_PAYTECH_MODE === "prod" ? "prod" : "test",
       success_url: successUrl,
       cancel_url: cancelUrl,

@@ -48,9 +48,12 @@ const MerchantApplicationSchema = new Schema(
     payoutMethod: {
       type: String,
       enum: PAYOUT_METHODS,
-      default: "cash_collection",
+      default: "cash",
     },
     payoutDetails: { type: String, trim: true, maxlength: 400, default: "" },
+    payoutAccountName: { type: String, trim: true, maxlength: 120, default: "" },
+    payoutAccountNumber: { type: String, trim: true, maxlength: 120, default: "" },
+    payoutNotes: { type: String, trim: true, maxlength: 400, default: "" },
     referredByCode: { type: String, trim: true, maxlength: 24, uppercase: true, default: "" },
     notes: { type: String, trim: true, maxlength: 400, default: "" },
     confirmationEmailStatus: {
@@ -112,6 +115,9 @@ if (existingMerchantApplicationModel) {
     !existingSchema.path?.("businessRegistrationNumber") ||
     !existingSchema.path?.("payoutMethod") ||
     !existingSchema.path?.("payoutDetails") ||
+    !existingSchema.path?.("payoutAccountName") ||
+    !existingSchema.path?.("payoutAccountNumber") ||
+    !existingSchema.path?.("payoutNotes") ||
     !existingSchema.path?.("referredByCode") ||
     !existingSchema.path?.("confirmationEmailStatus") ||
     !existingSchema.path?.("confirmationEmailProvider") ||

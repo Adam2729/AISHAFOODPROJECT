@@ -42,6 +42,9 @@ type Body = {
   businessRegistrationNumber?: string;
   payoutMethod?: string;
   payoutDetails?: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutNotes?: string;
   referredByCode?: string;
   notes?: string;
 };
@@ -158,6 +161,9 @@ export async function POST(req: Request) {
     const businessRegistrationNumber = normalize(body.businessRegistrationNumber, 120, false);
     const payoutMethod = normalizePayoutMethod(body.payoutMethod);
     const payoutDetails = normalize(body.payoutDetails, 400, false);
+    const payoutAccountName = normalize(body.payoutAccountName, 120, false);
+    const payoutAccountNumber = normalize(body.payoutAccountNumber, 120, false);
+    const payoutNotes = normalize(body.payoutNotes, 400, false);
     const referredByCode = normalize(body.referredByCode, 24, false).toUpperCase();
     const notes = normalize(body.notes, 400, false);
 
@@ -203,6 +209,9 @@ export async function POST(req: Request) {
       businessRegistrationNumber,
       payoutMethod,
       payoutDetails,
+      payoutAccountName,
+      payoutAccountNumber,
+      payoutNotes,
       referredByCode,
       notes,
       status: "pending",

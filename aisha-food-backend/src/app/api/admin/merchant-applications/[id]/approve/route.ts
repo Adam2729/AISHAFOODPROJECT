@@ -279,6 +279,19 @@ export async function POST(
       Math.min(200, Number((application as { deliveryRadiusKm?: number }).deliveryRadiusKm || 8))
     );
     const payoutMethod = normalizePayoutMethod((application as { payoutMethod?: string }).payoutMethod);
+    const payoutAccountName = String(
+      (application as { payoutAccountName?: string }).payoutAccountName ||
+        (application as { ownerName?: string }).ownerName ||
+        ""
+    ).trim();
+    const payoutAccountNumber = String(
+      (application as { payoutAccountNumber?: string }).payoutAccountNumber || ""
+    ).trim();
+    const payoutNotes = String(
+      (application as { payoutNotes?: string; payoutDetails?: string }).payoutNotes ||
+        (application as { payoutDetails?: string }).payoutDetails ||
+        ""
+    ).trim();
     const deliveryPolicy = getDefaultDeliveryPolicy(deliveryType);
 
     const business = await Business.create({
@@ -317,8 +330,11 @@ export async function POST(
       },
       payout: {
         preferredMethod: payoutMethod,
-        details: String((application as { payoutDetails?: string }).payoutDetails || "").trim(),
+        details: payoutNotes,
         payoutContactName: String((application as { ownerName?: string }).ownerName || "").trim(),
+        accountName: payoutAccountName,
+        accountNumber: payoutAccountNumber,
+        notes: payoutNotes,
       },
       deliveryPolicy: {
         mode: deliveryPolicy.mode,

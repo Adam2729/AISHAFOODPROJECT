@@ -28,6 +28,12 @@ type DriverDoc = {
   cityId?: mongoose.Types.ObjectId | null;
   zoneLabel?: string | null;
   vehicleType?: string | null;
+  payout?: {
+    preferredMethod?: string | null;
+    accountName?: string | null;
+    accountNumber?: string | null;
+    notes?: string | null;
+  } | null;
   isActive?: boolean;
   isBanned?: boolean;
   availability?: string | null;
@@ -191,7 +197,7 @@ async function findExistingDriverForApplication(input: {
 
   return Driver.findOne({ $or: or })
     .select(
-      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType isActive isBanned availability auth.passwordHash"
+      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType payout isActive isBanned availability auth.passwordHash"
     )
     .lean<DriverDoc | null>();
 }
@@ -210,6 +216,10 @@ async function ensureApprovedDriverAccount(input: {
   const phoneHash = phoneToHash(phoneE164);
   const zoneLabel = String(input.application.zoneLabel || "").trim() || null;
   const vehicleType = String(input.application.vehicleType || "").trim() || null;
+  const payoutMethod = String(input.application.payoutMethod || "").trim() || "cash";
+  const payoutAccountName = String(input.application.payoutAccountName || "").trim() || "";
+  const payoutAccountNumber = String(input.application.payoutAccountNumber || "").trim() || "";
+  const payoutNotes = String(input.application.payoutNotes || "").trim() || "";
   const applicationPasswordHash = String(input.application.passwordHash || "").trim();
 
   const existing = await findExistingDriverForApplication({
@@ -248,6 +258,12 @@ async function ensureApprovedDriverAccount(input: {
       availability: "offline",
       zoneLabel,
       vehicleType,
+      payout: {
+        preferredMethod: payoutMethod,
+        accountName: payoutAccountName,
+        accountNumber: payoutAccountNumber,
+        notes: payoutNotes,
+      },
       referredByCode: normalizePartnerReferralCode(input.application.referredByCode),
       signupBonusAmount: 0,
       auth: passwordHash
@@ -273,6 +289,12 @@ async function ensureApprovedDriverAccount(input: {
       pausedReason: null,
       zoneLabel,
       vehicleType,
+      payout: {
+        preferredMethod: payoutMethod,
+        accountName: payoutAccountName,
+        accountNumber: payoutAccountNumber,
+        notes: payoutNotes,
+      },
     };
     if (passwordHash) {
       update["auth.passwordHash"] = passwordHash;
@@ -283,7 +305,7 @@ async function ensureApprovedDriverAccount(input: {
 
   const driver = await Driver.findById(driverId)
     .select(
-      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType isActive isBanned availability auth.passwordHash"
+      "_id name email phoneE164 phoneHash cityId zoneLabel vehicleType payout isActive isBanned availability auth.passwordHash"
     )
     .lean<DriverDoc | null>();
   if (!driver) {

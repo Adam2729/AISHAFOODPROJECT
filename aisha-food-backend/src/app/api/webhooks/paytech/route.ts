@@ -2,8 +2,11 @@ import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongodb";
 import { ok, fail } from "@/lib/apiResponse";
 import { normalizePayTechStatus, verifyPayTechWebhook } from "@/lib/paytech";
-import { queueMerchantNewOrderNotification, settleNotificationWrites } from "@/lib/notificationEvents";
-import { startAutomaticDriverDispatch } from "@/lib/driverDispatchOffers";
+import {
+  queueCustomerOrderConfirmedNotification,
+  queueMerchantNewOrderNotification,
+  settleNotificationWrites,
+} from "@/lib/notificationEvents";
 import { Order } from "@/models/Order";
 import { PaymentEvent } from "@/models/PaymentEvent";
 
@@ -151,12 +154,21 @@ export async function POST(req: Request) {
       baseUpdate["payment.status"] = "paid";
       baseUpdate["payment.paidAt"] = now;
       baseUpdate["failedAt"] = null;
+      if (normalizeText(order.status, 40).toLowerCase() === "pending_payment") {
+        baseUpdate.status = "new";
+      }
     } else if (normalizedStatus.normalized === "failed") {
       baseUpdate["payment.status"] = "failed";
       baseUpdate["failedAt"] = now;
+      if (normalizeText(order.status, 40).toLowerCase() === "pending_payment") {
+        baseUpdate.status = "cancelled";
+      }
     } else if (normalizedStatus.normalized === "cancelled") {
       baseUpdate["payment.status"] = "cancelled";
       baseUpdate["failedAt"] = now;
+      if (normalizeText(order.status, 40).toLowerCase() === "pending_payment") {
+        baseUpdate.status = "cancelled";
+      }
     } else {
       baseUpdate["payment.status"] = "pending";
     }
@@ -196,27 +208,27 @@ export async function POST(req: Request) {
               paymentStatus: "paid",
             },
           }),
+          queueCustomerOrderConfirmedNotification({
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            businessId: order.businessId,
+            businessName: order.businessName,
+            cityId: order.cityId,
+            driverId: order.dispatch?.assignedDriverId || null,
+            customerPhoneHash: order.phoneHash || null,
+            deliveryMode: order.deliverySnapshot?.mode || null,
+            source: "webhooks.paytech",
+            meta: {
+              paymentMethod: "paytech",
+              paymentStatus: "paid",
+            },
+          }),
         ],
         {
           orderId: String(order._id),
           businessId: order.businessId ? String(order.businessId) : null,
         }
       );
-
-      if (
-        order.deliverySnapshot?.mode === "platform_driver" &&
-        !order.dispatch?.assignedDriverId &&
-        ["accepted", "preparing", "ready"].includes(normalizeText(order.status, 40).toLowerCase()) &&
-        order.cityId
-      ) {
-        await startAutomaticDriverDispatch({
-          orderId: order._id,
-          cityId: order.cityId,
-          actor: "system",
-          source: "webhooks.paytech.paid",
-          note: "Paid online via PayTech",
-        }).catch(() => null);
-      }
     }
 
     return ok({ received: true });

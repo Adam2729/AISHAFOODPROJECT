@@ -29,6 +29,46 @@ npm run dev
 Server:
 - Local: `http://localhost:3000`
 
+## Merchant MVP Local Test Flow
+Use this when testing the OranjeEats merchant app locally against the backend.
+
+1. Start MongoDB and install backend dependencies:
+```bash
+npm install
+```
+
+2. Start the backend from the `aisha-food-backend/` folder:
+```bash
+npm run dev
+```
+
+3. Seed the local merchant MVP test data:
+```bash
+npm run seed:merchant-mvp
+```
+
+4. In `aisha-food-merchant-app/.env`, point the app to your backend using your machine IP, not `localhost`:
+```bash
+EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:3000
+```
+
+5. Start the merchant app:
+```bash
+npx expo start --clear
+```
+
+6. Login with the seeded merchant account:
+- Email: `merchant@test.oranjeeats.com`
+- Phone: `+22370000001`
+- Password: `Password123!`
+
+Seed notes:
+- Business name: `OranjeEats Test Kitchen`
+- City: `Bamako (BKO)`
+- Demo products: `5`
+- Demo orders: `2` (`new` and `preparing`)
+- The seeded business uses the canonical backend delivery type `platform_driver` because the live `Business` schema does not support `both`.
+
 ## QA Smoke Suite
 Runs end-to-end checks automatically:
 - create business

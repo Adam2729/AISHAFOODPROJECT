@@ -40,11 +40,15 @@ export type CityLean = {
     | "cash"
     | "orangeMoney"
     | "orange_money"
+    | "orange_money_ml"
+    | "orange_money_sn"
     | "wave"
     | "moovMoney"
     | "moov_money"
+    | "moov_money_ml"
     | "mobile_money"
     | "paytech"
+    | "card"
   >;
   riderModel: "selfDelivery" | "freelance" | "hybrid";
   supportWhatsAppE164: string;
@@ -226,10 +230,9 @@ function seedConfig(): SeedCityInput[] {
       platformDeliveryMargin: 200,
       paymentMethods: [
         "cash",
-        "orange_money",
+        "orange_money_ml",
         "wave",
-        "moov_money",
-        "mobile_money",
+        "moov_money_ml",
         "paytech",
       ],
       riderModel: "freelance",

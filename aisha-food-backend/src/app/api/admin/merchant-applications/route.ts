@@ -108,6 +108,10 @@ export async function GET(req: Request) {
         cuisineType?: string;
         storeCategory?: string;
         payoutMethod?: string;
+        payoutAccountName?: string;
+        payoutAccountNumber?: string;
+        payoutNotes?: string;
+        payoutDetails?: string;
         logoUrl?: string;
         coverImageUrl?: string;
         notes?: string;
@@ -144,6 +148,9 @@ export async function GET(req: Request) {
         cuisineType: String(row.cuisineType || ""),
         storeCategory: String(row.storeCategory || ""),
         payoutMethod: String(row.payoutMethod || ""),
+        payoutAccountName: String(row.payoutAccountName || ""),
+        payoutAccountNumber: String(row.payoutAccountNumber || ""),
+        payoutNotes: String(row.payoutNotes || row.payoutDetails || ""),
         logoUrl: String(row.logoUrl || ""),
         coverImageUrl: String(row.coverImageUrl || ""),
         notes: String(row.notes || ""),
