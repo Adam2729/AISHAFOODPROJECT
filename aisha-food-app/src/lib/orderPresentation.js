@@ -4,6 +4,22 @@ function normalize(value) {
   return String(value || "").trim();
 }
 
+export function isHostedPayTechPaymentMethod(method) {
+  return [
+    "paytech",
+    "mobile_money",
+    "orange_money",
+    "orange_money_ml",
+    "orange_money_sn",
+    "wave",
+    "moov_money",
+    "moov_money_ml",
+    "card",
+    "carte",
+    "carte_bancaire",
+  ].includes(normalize(method).toLowerCase());
+}
+
 function getCopy(cityOrMarket) {
   const market = getMarketConfig(cityOrMarket);
   const isSpanish = market.defaultLanguage === "es";
@@ -155,10 +171,13 @@ export function getDeliveryFinalizationState({ orderStatus, deliveryProof }, cit
 export function getCustomerPaymentStatusLabel(payment, orderStatus, cityOrMarket) {
   const copy = getCopy(cityOrMarket);
   const method = normalize(payment?.method).toLowerCase() || "cash";
+  const provider = normalize(payment?.provider).toLowerCase();
   const status = normalize(payment?.status).toLowerCase() || "pending";
   const normalizedOrderStatus = normalize(orderStatus).toLowerCase();
+  const isPayTechHostedMethod =
+    isHostedPayTechPaymentMethod(method) || provider === "paytech";
 
-  if (method === "paytech") {
+  if (isPayTechHostedMethod) {
     if (status === "paid") return copy.paidOnline;
     if (status === "authorized") return copy.authorized;
     if (status === "failed") return copy.failed;

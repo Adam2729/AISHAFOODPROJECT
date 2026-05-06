@@ -22,6 +22,7 @@ import {
   getCustomerPaymentStatusLabel,
   getCustomerSafeOrderReference,
   getDeliveryFinalizationState,
+  isHostedPayTechPaymentMethod,
   getMaskedDeliveryOtp,
   getSupportAvailability,
   getVisibleDeliveryOtp,
@@ -49,9 +50,14 @@ export default function ConfirmationScreen({ route, navigation }) {
   const paytechPaymentUrl = String(route?.params?.paytechPaymentUrl || "").trim();
   const paymentPendingNotice = String(route?.params?.paymentPendingNotice || "").trim();
   const paymentLinkError = String(route?.params?.paymentLinkError || "").trim();
+  const paymentMethodKey = String(payment?.method || "").trim().toLowerCase();
+  const paymentProviderKey = String(payment?.provider || "").trim().toLowerCase();
+  const paymentStatusKey = String(payment?.status || "").trim().toLowerCase();
   const isPayTechPending =
-    String(payment?.method || "").trim().toLowerCase() === "paytech" &&
-    String(payment?.status || "").trim().toLowerCase() === "pending";
+    (isHostedPayTechPaymentMethod(paymentMethodKey) ||
+      paymentProviderKey === "paytech" ||
+      currentStatus === "pending_payment") &&
+    paymentStatusKey === "pending";
   const isPendingPaymentStatus = currentStatus === "pending_payment";
   const deliveryPresentation = getCustomerDeliveryPresentation(
     {
