@@ -251,9 +251,9 @@ export default function AdminDashboardPage() {
         tone: "slate" as const,
       },
       {
-        href: "/api/admin/notification-events",
+        href: "/admin/notification-events",
         title: "Notification Events",
-        description: "Inspect outbound merchant, driver, and customer event traffic.",
+        description: "Inspect outbound merchant and customer event traffic.",
         tone: "slate" as const,
       },
     ],

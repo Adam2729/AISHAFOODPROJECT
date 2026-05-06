@@ -33,6 +33,8 @@ type DriverRow = {
   availability?: string | null;
   accountStatus?: string | null;
   isActive?: boolean;
+  isArchived?: boolean;
+  archiveReason?: string | null;
   zoneLabel?: string | null;
   payoutMethod?: string | null;
   payoutAccountName?: string | null;
@@ -406,6 +408,50 @@ export default function AdminDriversPage() {
     }
   }
 
+  async function archiveDriver(driver: DriverRow) {
+    const reason = window.prompt(
+      "Delete reason. This will archive the driver account, not permanently remove it.",
+      ""
+    ) || "";
+    if (reason.trim().length < 5) {
+      setError("Archive reason must be at least 5 characters.");
+      return;
+    }
+    if (!window.confirm(`Archive driver ${driver.name}?`)) {
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/admin/drivers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "archive",
+          driverId: driver.id,
+          reason,
+        }),
+      });
+      if (res.status === 401) {
+        setAuthenticated(false);
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: unknown } | null;
+      if (!res.ok || !json?.ok) {
+        throw new Error(pickError(json?.error, "Could not archive driver account."));
+      }
+      setSuccess("Driver archived.");
+      await loadDrivers(cityId);
+    } catch (requestError: unknown) {
+      setError(
+        requestError instanceof Error ? requestError.message : "Could not archive driver account."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
     async function bootstrap() {
@@ -517,7 +563,7 @@ export default function AdminDriversPage() {
               onChange={(event) => setShowInactiveTestDrivers(event.target.checked)}
               className="h-4 w-4 rounded border-slate-300"
             />
-            Show inactive/test drivers
+            Show inactive/test/archived drivers
           </label>
         </div>
 
@@ -656,7 +702,7 @@ export default function AdminDriversPage() {
           </div>
           {hiddenDriversCount > 0 && !showInactiveTestDrivers ? (
             <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-              {hiddenDriversCount} inactive/test rows hidden
+              {hiddenDriversCount} inactive/test/archived rows hidden
             </span>
           ) : null}
         </div>
@@ -729,7 +775,7 @@ export default function AdminDriversPage() {
                         <button
                           type="button"
                           onClick={() => generateLoginLink(driver)}
-                          disabled={loading}
+                          disabled={loading || driver.isArchived}
                           className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-800 disabled:opacity-50"
                         >
                           Generate login link
@@ -737,10 +783,18 @@ export default function AdminDriversPage() {
                         <button
                           type="button"
                           onClick={() => toggleDriverActive(driver)}
-                          disabled={loading}
+                          disabled={loading || driver.isArchived}
                           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
                         >
                           {driver.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => archiveDriver(driver)}
+                          disabled={loading || driver.isArchived}
+                          className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50"
+                        >
+                          {driver.isArchived ? "Archived" : "Delete"}
                         </button>
                       </div>
                     </td>

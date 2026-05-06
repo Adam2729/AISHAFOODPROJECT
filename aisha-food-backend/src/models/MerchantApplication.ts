@@ -70,6 +70,10 @@ const MerchantApplicationSchema = new Schema(
       default: "pending",
       index: true,
     },
+    isArchived: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date, default: null },
+    archivedByAdminId: { type: String, trim: true, maxlength: 80, default: "" },
+    archiveReason: { type: String, trim: true, maxlength: 400, default: "" },
     approvedAt: { type: Date, default: null },
     approvedByAdminId: { type: String, trim: true, maxlength: 80, default: "" },
     rejectedAt: { type: Date, default: null },
@@ -123,6 +127,10 @@ if (existingMerchantApplicationModel) {
     !existingSchema.path?.("confirmationEmailProvider") ||
     !existingSchema.path?.("confirmationEmailSentAt") ||
     !existingSchema.path?.("confirmationEmailError") ||
+    !existingSchema.path?.("isArchived") ||
+    !existingSchema.path?.("archivedAt") ||
+    !existingSchema.path?.("archivedByAdminId") ||
+    !existingSchema.path?.("archiveReason") ||
     !existingSchema.path?.("referrerBusinessId") ||
     !existingSchema.path?.("referralRewardAmount") ||
     !existingSchema.path?.("referralBonusAppliedAt");

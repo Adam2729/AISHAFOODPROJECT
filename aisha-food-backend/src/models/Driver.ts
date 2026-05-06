@@ -15,6 +15,10 @@ const DriverSchema = new Schema(
     },
     cityId: { type: Schema.Types.ObjectId, ref: "City", required: true, index: true },
     isActive: { type: Boolean, default: true, index: true },
+    isArchived: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date, default: null },
+    archivedByAdminId: { type: String, default: null, trim: true, maxlength: 80 },
+    archiveReason: { type: String, default: "", trim: true, maxlength: 280 },
     isBanned: { type: Boolean, default: false, index: true },
     availability: {
       type: String,
@@ -170,6 +174,10 @@ if (existingDriverModel) {
   const needsMerge =
     !existingSchema.path?.("cityId") ||
     !existingSchema.path?.("isBanned") ||
+    !existingSchema.path?.("isArchived") ||
+    !existingSchema.path?.("archivedAt") ||
+    !existingSchema.path?.("archivedByAdminId") ||
+    !existingSchema.path?.("archiveReason") ||
     !existingSchema.path?.("lastDeliveryConfirmedAt") ||
     !existingSchema.path?.("availability") ||
     !existingSchema.path?.("lastAssignedAt") ||

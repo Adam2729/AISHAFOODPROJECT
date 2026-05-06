@@ -326,6 +326,44 @@ export default function AdminMerchantApplicationsPage() {
     }
   }
 
+  async function archiveApplication(id: string) {
+    if (!authenticated) return;
+    const reason =
+      prompt(
+        "Delete reason. This will archive the application record, not permanently remove it.",
+        ""
+      ) || "";
+    if (reason.trim().length < 5) {
+      setError("Archive reason must be at least 5 characters.");
+      return;
+    }
+    if (!confirm("Archive this merchant application?")) return;
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/admin/merchant-applications/${encodeURIComponent(id)}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.status === 401) {
+        setAuthenticated(false);
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: unknown } | null;
+      if (!res.ok || !json?.ok) {
+        throw new Error(pickError(json?.error, "Could not archive application."));
+      }
+      setSuccess("Application archived.");
+      await loadApps();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not archive application.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -569,6 +607,14 @@ export default function AdminMerchantApplicationsPage() {
                             >
                               Reject
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => archiveApplication(row._id)}
+                              disabled={loading}
+                              className="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -706,6 +752,14 @@ export default function AdminMerchantApplicationsPage() {
                     className="rounded border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50"
                   >
                     Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => archiveApplication(selected._id)}
+                    disabled={loading}
+                    className="rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </div>
               </section>

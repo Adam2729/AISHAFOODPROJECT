@@ -88,6 +88,21 @@ function extractCustomField(payload: Record<string, unknown>) {
   return parseMaybeJson(raw) || parseMaybeBase64Json(raw);
 }
 
+function extractAmount(payload: Record<string, unknown>) {
+  const raw = firstText(
+    [
+      payload.amount,
+      payload.item_price,
+      payload.payment_amount,
+      payload.total_amount,
+      payload.montant,
+    ],
+    120
+  );
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 export async function POST(req: Request) {
   try {
     await dbConnect();
@@ -107,7 +122,16 @@ export async function POST(req: Request) {
       120
     ) || null;
     const normalizedStatus = normalizePayTechStatus(payload);
+    const payloadAmount = extractAmount(payload);
     const customField = extractCustomField(payload);
+
+    console.info("[PayTech webhook] received", {
+      refCommand: refCommand || null,
+      transactionId,
+      status: normalizedStatus.normalized,
+      rawStatus: normalizedStatus.rawStatus,
+      amount: payloadAmount,
+    });
 
     let order = refCommand
       ? await Order.findOne({ paytechRefCommand: refCommand })
@@ -126,14 +150,39 @@ export async function POST(req: Request) {
     }
 
     if (!order) {
-      return fail("NOT_FOUND", "PayTech order reference was not found.", 404);
+      console.warn("[PayTech webhook] order not found", {
+        refCommand: refCommand || null,
+        transactionId,
+        status: normalizedStatus.normalized,
+        amount: payloadAmount,
+      });
+      return ok({
+        received: true,
+        orderFound: false,
+      });
     }
 
     const currentPaymentStatus = normalizeText(
       order.payment?.status || order.paymentStatus,
       40
     ).toLowerCase();
-    if (currentPaymentStatus === "paid" && normalizedStatus.normalized === "paid") {
+    if (currentPaymentStatus === "paid") {
+      console.info("[PayTech webhook] paid order already finalized", {
+        orderId: String(order._id),
+        refCommand: refCommand || order.paytechRefCommand || null,
+        transactionId,
+        currentPaymentStatus,
+        incomingStatus: normalizedStatus.normalized,
+      });
+      return ok({ received: true, idempotent: true });
+    }
+    if (currentPaymentStatus === normalizedStatus.normalized) {
+      console.info("[PayTech webhook] duplicate ignored", {
+        orderId: String(order._id),
+        refCommand: refCommand || order.paytechRefCommand || null,
+        transactionId,
+        status: normalizedStatus.normalized,
+      });
       return ok({ received: true, idempotent: true });
     }
 
@@ -175,7 +224,7 @@ export async function POST(req: Request) {
 
     await Order.updateOne({ _id: order._id }, { $set: baseUpdate });
 
-    const amount = Number(order.total || 0);
+    const amount = payloadAmount ?? Number(order.total || 0);
     await PaymentEvent.create({
       orderId: order._id,
       cityId: order.cityId,
@@ -231,7 +280,11 @@ export async function POST(req: Request) {
       );
     }
 
-    return ok({ received: true });
+    return ok({
+      received: true,
+      orderFound: true,
+      paymentStatus: normalizedStatus.normalized,
+    });
   } catch (error: unknown) {
     const err = error as ApiError;
     return fail(

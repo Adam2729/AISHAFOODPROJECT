@@ -19,6 +19,10 @@ type DriverDoc = {
   name: string;
   email?: string | null;
   isActive: boolean;
+  isArchived?: boolean;
+  archivedAt?: Date | null;
+  archivedByAdminId?: string | null;
+  archiveReason?: string | null;
   isBanned?: boolean;
   bannedReason?: string | null;
   pausedAt?: Date | null;
@@ -62,7 +66,7 @@ type CreateDriverBody = {
 };
 
 type UpdateDriverBody = {
-  action?: "update" | "reveal_phone" | "generate_link";
+  action?: "update" | "reveal_phone" | "generate_link" | "archive";
   driverId?: string;
   name?: string;
   email?: string;
@@ -75,6 +79,7 @@ type UpdateDriverBody = {
 };
 
 function accountStatus(driver: DriverDoc) {
+  if (driver.isArchived) return "archived";
   if (driver.isBanned) return "banned";
   if (driver.pausedAt) return "paused";
   return driver.isActive ? "active" : "inactive";
@@ -142,7 +147,10 @@ function toDriverRow(driver: DriverDoc, activeAssignedOrderCount = 0) {
     name: String(driver.name || ""),
     email: String(driver.email || "").trim() || null,
     isActive: Boolean(driver.isActive),
+    isArchived: Boolean(driver.isArchived),
     isBanned: Boolean(driver.isBanned),
+    archivedAt: driver.archivedAt || null,
+    archiveReason: driver.archiveReason || null,
     bannedReason: driver.bannedReason || null,
     accountStatus: accountStatus(driver),
     availability: String(driver.availability || "offline"),
@@ -197,6 +205,9 @@ export async function GET(req: Request) {
     const filter: Record<string, unknown> = {
       cityId: new mongoose.Types.ObjectId(String(selectedCity._id)),
     };
+    if (!includeHidden) {
+      filter.isArchived = { $ne: true };
+    }
     if (q) {
       const regex = new RegExp(q, "i");
       filter.$or = [{ name: regex }, { email: regex }, { phoneE164: regex }, { zoneLabel: regex }];
@@ -207,7 +218,7 @@ export async function GET(req: Request) {
 
     const drivers = await Driver.find(filter)
       .select(
-        "_id name email phoneE164 phoneHash cityId isActive isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
+        "_id name email phoneE164 phoneHash cityId isActive isArchived archivedAt archiveReason isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
         + " payout"
       )
       .sort({ createdAt: -1 })
@@ -388,7 +399,7 @@ export async function PATCH(req: Request) {
     await dbConnect();
     const driver = await Driver.findById(driverId)
       .select(
-        "_id name email phoneE164 phoneHash cityId isActive isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
+        "_id name email phoneE164 phoneHash cityId isActive isArchived archivedAt archiveReason isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
       )
       .lean<DriverDoc | null>();
     if (!driver) return fail("NOT_FOUND", "Driver not found.", 404);
@@ -423,6 +434,9 @@ export async function PATCH(req: Request) {
     }
 
     if (action === "generate_link") {
+      if (driver.isArchived) {
+        return fail("VALIDATION_ERROR", "Archived drivers cannot receive login links.", 409);
+      }
       const cityIdParam = String(body.cityId || "").trim();
       if (cityIdParam && !mongoose.Types.ObjectId.isValid(cityIdParam)) {
         return fail("VALIDATION_ERROR", "cityId must be valid to generate a driver link.", 400);
@@ -443,6 +457,61 @@ export async function PATCH(req: Request) {
         linkUrl: sessionLink.linkUrl,
         expiresAt: sessionLink.expiresAt,
         whatsappText: sessionLink.whatsappText,
+      });
+    }
+
+    if (action === "archive") {
+      const reason = String(body.reason || "").trim().slice(0, 280);
+      if (reason.length < 5) {
+        return fail("VALIDATION_ERROR", "Archive reason must be at least 5 characters.", 400);
+      }
+      const activeAssignedOrderCount = await Order.countDocuments({
+        cityId: driver.cityId || undefined,
+        "deliverySnapshot.mode": "platform_driver",
+        "dispatch.assignedDriverId": driver._id,
+        status: { $in: ["accepted", "preparing", "ready", "out_for_delivery"] },
+      });
+      if (activeAssignedOrderCount > 0) {
+        return fail(
+          "CONFLICT",
+          "Driver has active assigned orders and cannot be archived yet.",
+          409
+        );
+      }
+
+      await Driver.updateOne(
+        { _id: driver._id },
+        {
+          $set: {
+            isArchived: true,
+            isActive: false,
+            availability: "offline",
+            archivedAt: new Date(),
+            archivedByAdminId: "admin_key",
+            archiveReason: reason,
+          },
+        }
+      );
+
+      try {
+        await OpsEvent.create({
+          type: "DRIVER_ARCHIVE",
+          severity: "medium",
+          weekKey: getWeekKey(new Date()),
+          businessId: null,
+          businessName: "dispatch",
+          meta: {
+            driverId: String(driver._id),
+            reason,
+          },
+        });
+      } catch {
+        // no-op
+      }
+
+      return ok({
+        archived: true,
+        driverId: String(driver._id),
       });
     }
 
@@ -467,7 +536,8 @@ export async function PATCH(req: Request) {
     await Driver.updateOne({ _id: driver._id }, { $set: next });
     const updated = await Driver.findById(driver._id)
       .select(
-        "_id name email phoneE164 phoneHash cityId isActive isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
+      "_id name email phoneE164 phoneHash cityId isActive isBanned bannedReason pausedAt pausedReason availability breakStartedAt breakReason breakNote lastSeenAt lastLocation.updatedAt lastDeliveryConfirmedAt zoneLabel notes auth.lastLoginAt createdAt updatedAt"
+      + " isArchived archivedAt archiveReason"
       )
       .lean<DriverDoc | null>();
     if (!updated) return fail("NOT_FOUND", "Driver not found.", 404);

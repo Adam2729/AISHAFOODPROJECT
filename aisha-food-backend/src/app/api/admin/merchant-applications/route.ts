@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     };
 
     const filter: Record<string, unknown> = {};
+    filter.isArchived = { $ne: true };
     if (params.cityId && mongoose.Types.ObjectId.isValid(String(params.cityId))) {
       filter.cityId = new mongoose.Types.ObjectId(String(params.cityId));
     }
