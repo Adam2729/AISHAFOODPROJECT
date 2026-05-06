@@ -38,12 +38,23 @@ const MARKET_DEFAULTS = {
     defaultTimezone: "Africa/Bamako",
     paymentMethods: [
       "cash",
-      "orange_money",
+      "orange_money_ml",
       "wave",
-      "moov_money",
-      "mobile_money",
+      "moov_money_ml",
       "paytech",
     ],
+  },
+  SN: {
+    marketCode: "SN",
+    countryName: "Senegal",
+    defaultLanguage: "fr",
+    allowedLanguages: ["fr", "en"],
+    currencyCode: "XOF",
+    currencyDisplay: "XOF",
+    supportWhatsApp: ML_SUPPORT_WHATSAPP_DEFAULT,
+    supportWhatsAppIsPlaceholder: true,
+    defaultTimezone: "Africa/Dakar",
+    paymentMethods: ["cash", "orange_money_sn", "wave", "paytech", "card"],
   },
 };
 const PAYMENT_METHOD_FALLBACK = ["cash", "mobile_money", "paytech"];
@@ -75,7 +86,7 @@ function normalizeDigits(value) {
 
 function configuredDefaultMarketCode() {
   const explicitMarketCode = normalizeUpper(process.env.EXPO_PUBLIC_DEFAULT_MARKET_CODE);
-  if (explicitMarketCode === "ML" || explicitMarketCode === "DO") {
+  if (explicitMarketCode === "ML" || explicitMarketCode === "DO" || explicitMarketCode === "SN") {
     return explicitMarketCode;
   }
 
@@ -83,6 +94,7 @@ function configuredDefaultMarketCode() {
     process.env.EXPO_PUBLIC_DEFAULT_CITY_CODE || process.env.EXPO_PUBLIC_LAUNCH_CITY_CODE
   );
   if (launchCityCode === "SDQ") return "DO";
+  if (launchCityCode === "DKR") return "SN";
   if (launchCityCode === "BKO") return "ML";
   return "ML";
 }
@@ -93,6 +105,16 @@ function inferMarketCode(cityOrMarket) {
   const name = normalizeLower(cityOrMarket?.name);
   const country = normalizeLower(cityOrMarket?.country || cityOrMarket?.countryName);
   const currency = normalizeUpper(cityOrMarket?.currencyCode || cityOrMarket?.currency);
+
+  if (
+    code === "SN" ||
+    code === "DKR" ||
+    slug === "dakar" ||
+    name === "dakar" ||
+    country === "senegal"
+  ) {
+    return "SN";
+  }
 
   if (
     code === "ML" ||
@@ -135,6 +157,7 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
   const raw = Array.isArray(cityOrMarket?.paymentMethods) ? cityOrMarket.paymentMethods : [];
   if (!raw.length) return [...fallbackMethods];
 
+  const marketCode = inferMarketCode(cityOrMarket);
   const methods = new Set();
   raw.forEach((value) => {
     const normalized = normalizeLower(value);
@@ -144,27 +167,57 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
     }
     if (
       normalized === "orange_money" ||
+      normalized === "orange_money_ml" ||
+      normalized === "orange_money_sn" ||
       normalized === "mobile_money" ||
       normalized === "orangemoney" ||
       normalized === "moov_money" ||
+      normalized === "moov_money_ml" ||
       normalized === "moovmoney" ||
       normalized === "wave" ||
-      normalized === "wavemoney"
+      normalized === "wavemoney" ||
+      normalized === "momo"
     ) {
-      if (normalized === "orange_money" || normalized === "orangemoney") {
-        methods.add("orange_money");
+      if (
+        normalized === "orange_money_ml" ||
+        ((normalized === "orange_money" || normalized === "orangemoney") && marketCode === "ML")
+      ) {
+        methods.add("orange_money_ml");
+      }
+      if (
+        normalized === "orange_money_sn" ||
+        ((normalized === "orange_money" || normalized === "orangemoney") && marketCode === "SN")
+      ) {
+        methods.add("orange_money_sn");
       }
       if (normalized === "wave" || normalized === "wavemoney") {
         methods.add("wave");
       }
-      if (normalized === "moov_money" || normalized === "moovmoney") {
-        methods.add("moov_money");
+      if (
+        normalized === "moov_money_ml" ||
+        normalized === "moov_money" ||
+        normalized === "moovmoney"
+      ) {
+        methods.add("moov_money_ml");
       }
-      methods.add("mobile_money");
+      if (normalized === "mobile_money" || normalized === "momo") {
+        if (marketCode === "SN") {
+          methods.add("orange_money_sn");
+          methods.add("wave");
+        } else {
+          methods.add("orange_money_ml");
+          methods.add("moov_money_ml");
+          methods.add("wave");
+        }
+      }
       return;
     }
     if (normalized === "paytech") {
       methods.add("paytech");
+      return;
+    }
+    if (normalized === "card" || normalized === "carte" || normalized === "carte_bancaire") {
+      methods.add("card");
     }
   });
 
@@ -173,15 +226,33 @@ function normalizePaymentMethods(cityOrMarket, fallbackMethods) {
   }
 
   const isBamakoMarket =
-    inferMarketCode(cityOrMarket) === "ML" &&
+    marketCode === "ML" &&
     (normalizeUpper(cityOrMarket?.code) === "BKO" ||
       normalizeLower(cityOrMarket?.name) === "bamako" ||
       normalizeLower(cityOrMarket?.country || cityOrMarket?.countryName) === "mali");
+  const isSenegalMarket =
+    marketCode === "SN" &&
+    (normalizeUpper(cityOrMarket?.code) === "DKR" ||
+      normalizeLower(cityOrMarket?.name) === "dakar" ||
+      normalizeLower(cityOrMarket?.country || cityOrMarket?.countryName) === "senegal");
   const hasDigitalMethods = Array.from(methods).some((method) =>
-    ["orange_money", "wave", "moov_money", "mobile_money", "paytech"].includes(method)
+    [
+      "orange_money",
+      "orange_money_ml",
+      "orange_money_sn",
+      "wave",
+      "moov_money",
+      "moov_money_ml",
+      "mobile_money",
+      "paytech",
+      "card",
+    ].includes(method)
   );
   if (isBamakoMarket && !hasDigitalMethods) {
     return [...MARKET_DEFAULTS.ML.paymentMethods];
+  }
+  if (isSenegalMarket && !hasDigitalMethods) {
+    return [...MARKET_DEFAULTS.SN.paymentMethods];
   }
 
   return Array.from(methods);
@@ -270,5 +341,33 @@ export function getSupportWhatsAppNumber(cityOrMarket) {
 export function getMarketLocale(cityOrMarket) {
   const market = getMarketConfig(cityOrMarket);
   if (market.marketCode === "ML") return "fr-ML";
+  if (market.marketCode === "SN") return "fr-SN";
   return "es-DO";
+}
+
+export function getPayTechRegionConfig(cityOrMarket) {
+  const market = getMarketConfig(cityOrMarket);
+  if (market.marketCode === "SN") {
+    return {
+      key: "senegal",
+      countryCode: "+221",
+      labels: {
+        orangeMoney: "Orange Money Senegal",
+        moovMoney: "Moov Money",
+        wave: "Wave",
+        card: "Carte bancaire",
+      },
+    };
+  }
+
+  return {
+    key: "mali",
+    countryCode: "+223",
+    labels: {
+      orangeMoney: "Orange Money Mali",
+      moovMoney: "Moov Money Mali",
+      wave: "Wave",
+      card: "Carte bancaire",
+    },
+  };
 }

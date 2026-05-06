@@ -39,20 +39,26 @@ export function paymentMethodLabel(method, cityOrMarket) {
   switch (String(method || "").trim().toLowerCase()) {
     case "orange_money":
       return "Orange Money";
+    case "orange_money_ml":
+      return "Orange Money Mali";
+    case "orange_money_sn":
+      return "Orange Money Senegal";
     case "wave":
       return "Wave";
     case "moov_money":
       return "Moov Money";
+    case "moov_money_ml":
+      return "Moov Money Mali";
     case "mobile_money":
       return isSpanish ? "Dinero movil" : "Mobile money";
     case "paytech":
-      return isSpanish
-        ? "PayTech / Orange Money / Wave / Carte"
-        : "PayTech / Orange Money / Wave / Carte";
+      return market.marketCode === "SN"
+        ? "PayTech / Orange Money Senegal / Wave / Carte"
+        : "PayTech / Orange Money Mali / Moov Money Mali / Wave";
     case "wallet":
       return isSpanish ? "Billetera" : "Portefeuille";
     case "card":
-      return isSpanish ? "Tarjeta" : "Carte";
+      return isSpanish ? "Tarjeta bancaria" : "Carte bancaire";
     case "cash":
     default:
       return isSpanish ? "Efectivo / Cash" : "Espèces / Cash";
@@ -84,6 +90,8 @@ export function orderStatusLabel(status, cityOrMarket) {
   const market = getMarketConfig(cityOrMarket);
   const isSpanish = market.defaultLanguage === "es";
   switch (String(status || "").trim().toLowerCase()) {
+    case "pending_payment":
+      return isSpanish ? "Pago en espera" : "Paiement en attente";
     case "accepted":
       return isSpanish ? "Aceptado" : "Acceptee";
     case "preparing":
@@ -106,6 +114,9 @@ export function buildOrderTimeline(status, cityOrMarket) {
   const market = getMarketConfig(cityOrMarket);
   const isSpanish = market.defaultLanguage === "es";
   const normalized = String(status || "new").trim().toLowerCase();
+  if (normalized === "pending_payment") {
+    return [];
+  }
   const steps = [
     { key: "new", label: isSpanish ? "Pedido recibido" : "Commande recue" },
     { key: "accepted", label: isSpanish ? "Aceptado" : "Acceptee" },

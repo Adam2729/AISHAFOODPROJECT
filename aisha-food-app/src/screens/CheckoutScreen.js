@@ -24,6 +24,7 @@ import {
   getCustomerUiCopy,
   readSavedCustomerAddress,
 } from "../lib/customerUi";
+import { getPayTechRegionConfig } from "../lib/marketConfig";
 import { paymentMethodLabel } from "../lib/formatters";
 import { getSupportAvailability } from "../lib/orderPresentation";
 import formatPrice from "../lib/formatPrice";
@@ -40,11 +41,69 @@ function normalizePhone(value) {
 
 function normalizeCheckoutPaymentMethod(method) {
   const normalized = String(method || "").trim().toLowerCase();
-  if (["wave", "orange_money", "moov_money", "mobile_money"].includes(normalized)) {
+  if (
+    [
+      "wave",
+      "orange_money",
+      "orange_money_ml",
+      "orange_money_sn",
+      "moov_money",
+      "moov_money_ml",
+      "mobile_money",
+      "paytech",
+      "card",
+      "carte",
+      "carte_bancaire",
+    ].includes(normalized)
+  ) {
     return "paytech";
   }
-  if (normalized === "paytech") return "paytech";
   return "cash";
+}
+
+function normalizePayTechPhoneForCity(value, cityOrMarket) {
+  const region = getPayTechRegionConfig(cityOrMarket);
+  const digits = String(value || "").replace(/\D+/g, "").trim();
+
+  if (region.key === "mali") {
+    if (digits.startsWith("221")) {
+      return {
+        ok: false,
+        e164: "",
+        message: "Veuillez entrer un numéro mobile money malien valide.",
+      };
+    }
+    if (digits.startsWith("223") && digits.length === 11) {
+      return { ok: true, e164: `+${digits}`, message: "" };
+    }
+    if (digits.length === 8) {
+      return { ok: true, e164: `+223${digits}`, message: "" };
+    }
+    return {
+      ok: false,
+      e164: "",
+      message: "Veuillez entrer un numéro mobile money malien valide.",
+    };
+  }
+
+  if (digits.startsWith("223")) {
+    return {
+      ok: false,
+      e164: "",
+      message: "Veuillez entrer un numéro mobile money sénégalais valide.",
+    };
+  }
+  if (digits.startsWith("221") && digits.length === 12) {
+    return { ok: true, e164: `+${digits}`, message: "" };
+  }
+  if (digits.length === 9) {
+    return { ok: true, e164: `+221${digits}`, message: "" };
+  }
+  return {
+    ok: false,
+    e164: "",
+    message: "Veuillez entrer un numéro mobile money sénégalais valide.",
+  };
 }
 
 export default function CheckoutScreen({ navigation }) {
@@ -215,10 +274,14 @@ export default function CheckoutScreen({ navigation }) {
       (method) =>
         method === "cash" ||
         method === "orange_money" ||
+        method === "orange_money_ml" ||
+        method === "orange_money_sn" ||
         method === "wave" ||
         method === "moov_money" ||
+        method === "moov_money_ml" ||
         method === "mobile_money" ||
-        method === "paytech"
+        method === "paytech" ||
+        method === "card"
     );
   }, [market.paymentMethods]);
 
@@ -269,9 +332,7 @@ export default function CheckoutScreen({ navigation }) {
           setPaymentMethod(
             savedPreferredPaymentMethod === "cash"
               ? "cash"
-              : savedPreferredPaymentMethod === "paytech"
-              ? "paytech"
-              : "mobile_money"
+              : "paytech"
           );
         }
         if (Number.isFinite(Number(saved?.lat))) setLat(Number(saved.lat));
@@ -503,6 +564,17 @@ export default function CheckoutScreen({ navigation }) {
           : selectedPaymentOption || paymentMethod;
       const orderPaymentMethod = normalizeCheckoutPaymentMethod(requestedPaymentMethod);
       const isPayTechCheckout = orderPaymentMethod === "paytech";
+      const payTechPhone = isPayTechCheckout
+        ? normalizePayTechPhoneForCity(phone, selectedCity || market)
+        : null;
+      if (isPayTechCheckout && !payTechPhone?.ok) {
+        Alert.alert(
+          text.payment,
+          payTechPhone?.message || "Veuillez entrer un numéro mobile money malien valide."
+        );
+        return;
+      }
+      const normalizedOrderPhone = isPayTechCheckout ? payTechPhone.e164 : safePhone;
       const response = await apiPost("/api/public/orders", {
         cityId: selectedCity?._id,
         restaurantId: cart.businessId,
@@ -518,7 +590,7 @@ export default function CheckoutScreen({ navigation }) {
           quantityUnit: String(item.quantityUnit || ""),
         })),
         customerName: String(customerName || "").trim(),
-        phone: safePhone,
+        phone: normalizedOrderPhone,
         address: String(composedAddress || "").trim(),
         notes: String(deliveryInstructions || "").trim(),
         paymentMethod: orderPaymentMethod,
@@ -550,7 +622,7 @@ export default function CheckoutScreen({ navigation }) {
         SAVED_CUSTOMER_KEY,
         JSON.stringify({
           customerName: String(customerName || "").trim(),
-          phone: safePhone,
+          phone: normalizedOrderPhone,
           address: String(composedAddress || "").trim(),
           addressLine: String(addressLine || "").trim(),
           district: String(district || "").trim(),
@@ -570,12 +642,14 @@ export default function CheckoutScreen({ navigation }) {
       navigation.replace("Confirmation", {
         orderId: response?.orderId,
         orderNumber: response?.orderNumber,
+        status: response?.status || (isPayTechCheckout ? "pending_payment" : "new"),
         businessId: response?.businessId || cart.businessId,
         businessName: response?.businessName || cart.businessName,
         payment: {
           ...(response?.payment || { status: "pending" }),
           method:
-            response?.payment?.method === "mobile_money"
+            response?.payment?.method === "mobile_money" ||
+            response?.payment?.method === "paytech"
               ? selectedPaymentOption
               : response?.payment?.method ||
                 (selectedPaymentOption === "cash" ? "cash" : selectedPaymentOption),
@@ -604,6 +678,7 @@ export default function CheckoutScreen({ navigation }) {
         deliveryOtp: response?.deliveryOtp || "",
         deliveryProof: response?.deliveryProof || null,
         city: selectedCity,
+        eta: response?.order?.eta || response?.business?.eta || null,
         paytechPaymentUrl: isPayTechCheckout ? paytechPaymentUrl : "",
         paymentPendingNotice: isPayTechCheckout ? text.paytechPending : "",
         paymentLinkError: isPayTechCheckout ? paymentLinkError : "",

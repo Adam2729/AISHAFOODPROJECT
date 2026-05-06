@@ -38,6 +38,10 @@ function getCopy(cityOrMarket) {
     onlinePaymentPending: isSpanish
       ? "Pago en linea pendiente"
       : "Paiement en ligne en attente",
+    paymentPendingStage: isSpanish ? "Pago en espera" : "Paiement en attente",
+    paymentPendingHint: isSpanish
+      ? "Finaliza tu pago en linea para confirmar este pedido."
+      : "Finalise ton paiement en ligne pour confirmer cette commande.",
     orderConfirmed: isSpanish ? "Pedido recibido" : "Commande recue",
     orderConfirmedHint: isSpanish
       ? "El negocio debe aceptar y comenzar la preparacion."
@@ -198,6 +202,7 @@ function fallbackCustomerStageKey(snapshot) {
     Boolean(snapshot?.delivery?.pickedUpAt) ||
     Boolean(snapshot?.dispatch?.pickedUpAt);
 
+  if (status === "pending_payment") return "pending_payment";
   if (status === "cancelled") return "cancelled";
   if (status === "delivered") return "delivered";
   if (deliveryMode === "platform_driver" && pickedUp && status === "ready") {
@@ -214,6 +219,10 @@ function fallbackCustomerStageKey(snapshot) {
 }
 
 function buildCustomerTimeline(stageKey, deliveryMode, driverAssigned, copy) {
+  if (stageKey === "pending_payment") {
+    return [];
+  }
+
   const rows =
     deliveryMode === "platform_driver"
       ? [
@@ -247,6 +256,7 @@ function buildCustomerTimeline(stageKey, deliveryMode, driverAssigned, copy) {
   }
 
   const stageIndexMap = {
+    pending_payment: 0,
     order_confirmed: 0,
     being_prepared: 1,
     waiting_driver: deliveryMode === "platform_driver" ? 1 : 1,
@@ -279,6 +289,11 @@ export function getCustomerDeliveryPresentation(snapshot, cityOrMarket) {
   let progressPct = Number(deliveryUi.progressPct || 10);
 
   switch (stageKey) {
+    case "pending_payment":
+      label = copy.paymentPendingStage;
+      hint = copy.paymentPendingHint;
+      progressPct = 0;
+      break;
     case "being_prepared":
       label = copy.beingPrepared;
       hint = copy.beingPreparedHint;

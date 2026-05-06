@@ -185,7 +185,7 @@ export default function TrackScreen({ route }) {
     return eventAmount ? Number(eventAmount.amount) : null;
   }, [paymentEvents, snapshot?.totalAmount]);
   const activeDeliveryProof = snapshot?.deliveryProof || routeDeliveryProof || null;
-  const currentStatus = String(snapshot?.status || "new");
+  const currentStatus = String(snapshot?.status || route?.params?.status || "new");
   const businessName = getCustomerBusinessName(snapshot?.businessName || initialBusinessName);
   const orderReference = getCustomerSafeOrderReference(snapshot?.orderNumber || activeOrderReference || orderNumber);
   const paymentStatusLabel = getCustomerPaymentStatusLabel(snapshot?.payment, currentStatus, market);
@@ -206,7 +206,7 @@ export default function TrackScreen({ route }) {
   const driverLocation = snapshot?.driverLocation || null;
   const canShowEta =
     Number.isFinite(Number(snapshot?.etaMinutes)) &&
-    !["cancelled", "delivered"].includes(deliveryPresentation.stageKey);
+    !["pending_payment", "cancelled", "delivered"].includes(deliveryPresentation.stageKey);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -261,13 +261,15 @@ export default function TrackScreen({ route }) {
             {deliveryPresentation.hint ? (
               <Text style={styles.helperText}>{deliveryPresentation.hint}</Text>
             ) : null}
-            <OrderTimeline status={currentStatus} city={city} rows={deliveryPresentation.timeline} />
+            {deliveryPresentation.stageKey !== "pending_payment" ? (
+              <OrderTimeline status={currentStatus} city={city} rows={deliveryPresentation.timeline} />
+            ) : null}
             {canShowEta ? (
               <Text style={styles.helperText}>{text.etaApprox}: {Number(snapshot?.etaMinutes)} min</Text>
             ) : null}
           </View>
 
-          {visibleDeliveryOtp || maskedDeliveryOtp || deliveryState?.label ? (
+          {deliveryPresentation.stageKey !== "pending_payment" && (visibleDeliveryOtp || maskedDeliveryOtp || deliveryState?.label) ? (
             <View style={styles.noticeCard}>
               <Text style={styles.sectionTitle}>{text.otpTitle}</Text>
               {deliveryState?.label ? (

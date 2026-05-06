@@ -39,7 +39,7 @@ export default function ConfirmationScreen({ route, navigation }) {
   const payment = liveSnapshot?.payment || route?.params?.payment || { method: "cash", status: "pending" };
   const totals = route?.params?.totals || null;
   const loyalty = route?.params?.loyalty || null;
-  const currentStatus = String(liveSnapshot?.status || "new");
+  const currentStatus = String(liveSnapshot?.status || route?.params?.status || "new");
   const deliveryOtp = String(route?.params?.deliveryOtp || "").trim();
   const deliveryProof = liveSnapshot?.deliveryProof || route?.params?.deliveryProof || null;
   const businessName = getCustomerBusinessName(liveSnapshot?.businessName || initialBusinessName);
@@ -52,6 +52,7 @@ export default function ConfirmationScreen({ route, navigation }) {
   const isPayTechPending =
     String(payment?.method || "").trim().toLowerCase() === "paytech" &&
     String(payment?.status || "").trim().toLowerCase() === "pending";
+  const isPendingPaymentStatus = currentStatus === "pending_payment";
   const deliveryPresentation = getCustomerDeliveryPresentation(
     {
       ...(liveSnapshot || {}),
@@ -74,12 +75,14 @@ export default function ConfirmationScreen({ route, navigation }) {
   const maskedDeliveryOtp = getMaskedDeliveryOtp(deliveryProof?.otpLast4);
   const canShowEta =
     Number.isFinite(Number(liveSnapshot?.etaMinutes)) &&
-    !["cancelled", "delivered"].includes(deliveryPresentation.stageKey);
+    !["pending_payment", "cancelled", "delivered"].includes(deliveryPresentation.stageKey);
   const isSpanish = market.defaultLanguage === "es";
   const text = isSpanish
     ? {
-        title: "Pedido confirmado",
-        subtitle: `Enviamos tu pedido a ${businessName}.`,
+        title: isPendingPaymentStatus ? "Pago en espera" : "Pedido confirmado",
+        subtitle: isPendingPaymentStatus
+          ? "Completa el pago en linea para confirmar tu pedido."
+          : `Enviamos tu pedido a ${businessName}.`,
         orderNumber: "Referencia del pedido",
         orderReferenceUnavailable: "Referencia pendiente",
         refreshing: "Actualizando estado en vivo...",
@@ -103,8 +106,10 @@ export default function ConfirmationScreen({ route, navigation }) {
         continue: "Seguir explorando",
       }
     : {
-        title: "Commande confirmee",
-        subtitle: `Nous avons envoye ta commande a ${businessName}.`,
+        title: isPendingPaymentStatus ? "Paiement en attente" : "Commande confirmee",
+        subtitle: isPendingPaymentStatus
+          ? "Termine le paiement en ligne pour confirmer ta commande."
+          : `Nous avons envoye ta commande a ${businessName}.`,
         orderNumber: "Reference de commande",
         orderReferenceUnavailable: "Reference en attente",
         refreshing: "Actualisation du statut en direct...",
@@ -189,7 +194,9 @@ export default function ConfirmationScreen({ route, navigation }) {
         {deliveryPresentation.hint ? (
           <Text style={styles.helperText}>{deliveryPresentation.hint}</Text>
         ) : null}
-        <OrderTimeline status={currentStatus} city={city} rows={deliveryPresentation.timeline} />
+        {!isPendingPaymentStatus ? (
+          <OrderTimeline status={currentStatus} city={city} rows={deliveryPresentation.timeline} />
+        ) : null}
         {canShowEta ? (
           <Text style={styles.helperText}>
             {text.etaApprox}: {Number(liveSnapshot?.etaMinutes)} min
@@ -231,6 +238,7 @@ export default function ConfirmationScreen({ route, navigation }) {
       ) : null}
 
       {visibleDeliveryOtp || maskedDeliveryOtp || deliveryState?.label ? (
+        !isPendingPaymentStatus ? (
         <View style={styles.noticeCard}>
           <Text style={styles.sectionTitle}>{text.otpTitle}</Text>
           {deliveryState?.label ? <Text style={styles.noticeText}>{deliveryState.label}</Text> : null}
@@ -247,6 +255,7 @@ export default function ConfirmationScreen({ route, navigation }) {
             </Text>
           ) : null}
         </View>
+        ) : null
       ) : null}
 
       {loyaltyMessage ? (
@@ -266,6 +275,7 @@ export default function ConfirmationScreen({ route, navigation }) {
           navigation.replace("Track", {
             orderId,
             orderNumber,
+            status: currentStatus,
             businessName,
             deliveryOtp,
             deliveryProof,

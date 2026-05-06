@@ -1,4 +1,4 @@
-import { getMarketConfig } from "./marketConfig";
+import { getMarketConfig, getPayTechRegionConfig } from "./marketConfig";
 
 function normalize(value) {
   return String(value || "").trim();
@@ -53,6 +53,7 @@ export function getHomeSurfaceTabs(cityOrMarket) {
 
 export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
   const market = getMarketConfig(cityOrMarket);
+  const payTechRegion = getPayTechRegionConfig(cityOrMarket);
   const isSpanish = market.defaultLanguage === "es";
   const methodSet = new Set(
     (Array.isArray(availableMethods) && availableMethods.length ? availableMethods : market.paymentMethods || ["cash"])
@@ -61,10 +62,15 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
   const supportsAnyMobileMoney =
     methodSet.has("mobile_money") ||
     methodSet.has("orange_money") ||
+    methodSet.has("orange_money_ml") ||
+    methodSet.has("orange_money_sn") ||
     methodSet.has("orangemoney") ||
     methodSet.has("wave") ||
     methodSet.has("moov_money") ||
-    methodSet.has("moovmoney");
+    methodSet.has("moov_money_ml") ||
+    methodSet.has("moovmoney") ||
+    methodSet.has("paytech") ||
+    methodSet.has("card");
 
   const cashOption = {
     key: "cash",
@@ -77,48 +83,61 @@ export function getCustomerPaymentOptions(cityOrMarket, availableMethods = []) {
     ? "Pago seguro en linea via PayTech."
     : "Paiement securise en ligne via PayTech.";
   const mobileMoneyOptions = [];
-  if (methodSet.has("mobile_money") || methodSet.has("orange_money") || methodSet.has("orangemoney")) {
+  const isSenegal = payTechRegion.key === "senegal";
+  if (
+    methodSet.has("mobile_money") ||
+    methodSet.has("orange_money") ||
+    methodSet.has("orange_money_ml") ||
+    methodSet.has("orange_money_sn") ||
+    methodSet.has("orangemoney") ||
+    methodSet.has("paytech")
+  ) {
     mobileMoneyOptions.push({
-      key: "orange_money",
-      backendMethod: "mobile_money",
-      label: "Orange Money",
+      key: isSenegal ? "orange_money_sn" : "orange_money_ml",
+      backendMethod: "paytech",
+      label: payTechRegion.labels.orangeMoney,
       note: mobileMoneyNote,
     });
   }
-  if (methodSet.has("mobile_money") || methodSet.has("wave")) {
+  if (methodSet.has("mobile_money") || methodSet.has("wave") || methodSet.has("paytech")) {
     mobileMoneyOptions.push({
       key: "wave",
-      backendMethod: "mobile_money",
-      label: "Wave",
+      backendMethod: "paytech",
+      label: payTechRegion.labels.wave,
       note: mobileMoneyNote,
     });
   }
-  if (methodSet.has("mobile_money") || methodSet.has("moov_money") || methodSet.has("moovmoney")) {
+  if (
+    !isSenegal &&
+    (methodSet.has("mobile_money") ||
+      methodSet.has("moov_money") ||
+      methodSet.has("moov_money_ml") ||
+      methodSet.has("moovmoney") ||
+      methodSet.has("paytech"))
+  ) {
     mobileMoneyOptions.push({
-      key: "moov_money",
-      backendMethod: "mobile_money",
-      label: "Moov Money",
+      key: "moov_money_ml",
+      backendMethod: "paytech",
+      label: payTechRegion.labels.moovMoney,
       note: mobileMoneyNote,
     });
   }
 
-  const payTechOption = {
-    key: "paytech",
-    backendMethod: "paytech",
-    label: isSpanish
-      ? "Payer avec Orange Money / Wave / Carte"
-      : "Payer avec Orange Money / Wave / Carte",
-    note: isSpanish
-      ? "Pago seguro en linea via PayTech."
-      : "Paiement securise en ligne via PayTech.",
-  };
+  const payTechOption = isSenegal
+    ? {
+        key: "card",
+        backendMethod: "paytech",
+        label: payTechRegion.labels.card,
+        note: mobileMoneyNote,
+      }
+    : null;
 
   const options = [];
   if (methodSet.has("cash")) options.push(cashOption);
   if (supportsAnyMobileMoney) {
     options.push(...mobileMoneyOptions);
   }
-  if (methodSet.has("paytech")) {
+  if (payTechOption && (methodSet.has("paytech") || methodSet.has("card"))) {
     options.push(payTechOption);
   }
 
