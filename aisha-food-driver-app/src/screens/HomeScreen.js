@@ -281,9 +281,15 @@ export default function HomeScreen({ navigation }) {
     [driver?.availability]
   );
   const shouldTrackLocation = isOnline || hasValidActiveOrder;
+  const locationTrackingMode = hasValidActiveOrder
+    ? "active_delivery"
+    : isOnline
+    ? "online_waiting"
+    : "stopped";
+  const hasActiveIncomingOffer = isValidCurrentOffer(currentOffer);
   const pollIntervalMs = useMemo(
-    () =>
-      getDriverPollingInterval({
+      () =>
+        getDriverPollingInterval({
         currentOffer,
         activeOrder: displayActiveOrder,
         isOnline,
@@ -758,10 +764,11 @@ export default function HomeScreen({ navigation }) {
   useFocusedPolling(() => loadDashboard({ silent: true }), {
     intervalMs: pollIntervalMs,
     enabled:
-      isValidCurrentOffer(currentOffer) ||
-      hasValidActiveOrder ||
-      pendingActions.length > 0 ||
-      isOnline,
+      (!hasActiveIncomingOffer && (
+        hasValidActiveOrder ||
+        pendingActions.length > 0 ||
+        isOnline
+      )),
   });
 
   useEffect(() => {
@@ -814,7 +821,7 @@ export default function HomeScreen({ navigation }) {
       isMounted = false;
       stopDriverLocationTracking(subscription);
     };
-  }, [shouldTrackLocation]);
+  }, [hasValidActiveOrder, locationTrackingMode, shouldTrackLocation]);
 
   useEffect(() => {
     if (!currentOffer?.offerExpiresAt) return undefined;

@@ -245,6 +245,7 @@ const OrderSchema = new Schema(
           "driver_assigned",
           "driver_accepted",
           "no_driver_available",
+          "needs_manual_dispatch",
           null,
         ],
         default: null,

@@ -166,7 +166,9 @@ function formatDispatchState(order?: DispatchOrderRow | null) {
   const state = String(order?.driverDispatchStatus || "").trim();
   if (state === "offering_to_driver") return "Offering to driver";
   if (state === "waiting_for_driver") return "Waiting for driver";
-  if (state === "no_driver_available") return "No driver available";
+  if (state === "no_driver_available" || state === "needs_manual_dispatch") {
+    return "Needs manual dispatch";
+  }
   if (state === "driver_assigned" || state === "driver_accepted") return "Driver assigned";
   if (order?.assignedDriverId) return "Assigned";
   return "Dispatch pending";

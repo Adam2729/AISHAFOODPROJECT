@@ -361,7 +361,7 @@ export default function FinanceAlertsPanel({
                         Resolve
                       </button>
                       <a
-                        href={`/api/admin/finance/mismatches?weekKey=${encodeURIComponent(weekKey.trim())}&businessId=${encodeURIComponent(
+                        href={`/admin/finance-mismatches?weekKey=${encodeURIComponent(weekKey.trim())}&businessId=${encodeURIComponent(
                           alert.businessId
                         )}`}
                         target="_blank"

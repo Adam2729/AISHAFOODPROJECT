@@ -1,0 +1,6 @@
+env: load .env
+env: export EXPO_PUBLIC_API_URL
+Starting project at C:\Users\admin\AishaFoodProject\aisha-food-driver-app
+React Compiler enabled
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)

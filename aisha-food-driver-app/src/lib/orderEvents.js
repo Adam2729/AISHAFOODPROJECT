@@ -27,7 +27,7 @@ export function getDriverPollingInterval({
     return 15000;
   }
   if (currentOffer) {
-    return 4000;
+    return 15000;
   }
   if (shouldRefreshOrders(activeOrder)) {
     return 5000;
@@ -36,7 +36,7 @@ export function getDriverPollingInterval({
     return 8000;
   }
   if (isOnline) {
-    return 10000;
+    return 3000;
   }
   return 15000;
 }

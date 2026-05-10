@@ -1152,7 +1152,7 @@ export default async function AdminOpsPage({
         <h2 className="text-lg font-semibold">Observability</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <a
-            href="/api/admin/indexes"
+            href="/admin/indexes"
             target="_blank"
             rel="noreferrer"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold"

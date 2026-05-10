@@ -1054,12 +1054,12 @@ export async function PATCH(
     const notificationWrites: Array<Promise<unknown>> = [];
     const deliveryMode = resolveOperationalOrderDeliveryMode(existing);
 
-    if (
-      deliveryMode === "platform_driver" &&
-      existing.cityId &&
-      ["accepted", "preparing", "ready"].includes(nextStatus) &&
-      !existing.dispatch?.assignedDriverId
-    ) {
+      if (
+        deliveryMode === "platform_driver" &&
+        existing.cityId &&
+        nextStatus === "ready" &&
+        !existing.dispatch?.assignedDriverId
+      ) {
       startAutomaticDriverDispatch({
         orderId: updated._id,
         cityId: existing.cityId,

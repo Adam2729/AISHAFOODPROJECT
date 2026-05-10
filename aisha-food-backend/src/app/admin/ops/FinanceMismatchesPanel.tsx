@@ -84,6 +84,7 @@ type Props = {
   initialRows: FinanceMismatchRow[];
   initialSummary: FinanceSummary;
   initialAnomalies?: AnomaliesPayload;
+  initialBusinessIdFilter?: string;
   fetchError?: string;
 };
 
@@ -116,11 +117,12 @@ export default function FinanceMismatchesPanel({
   initialRows,
   initialSummary,
   initialAnomalies,
+  initialBusinessIdFilter,
   fetchError,
 }: Props) {
   const market = useAdminLaunchMarket(true);
   const [weekKey, setWeekKey] = useState(defaultWeekKey);
-  const [businessIdFilter, setBusinessIdFilter] = useState("");
+  const [businessIdFilter, setBusinessIdFilter] = useState(initialBusinessIdFilter || "");
   const [onlyProblems, setOnlyProblems] = useState(true);
   const [rows, setRows] = useState<FinanceMismatchRow[]>(initialRows);
   const [summary, setSummary] = useState<FinanceSummary>(initialSummary);
@@ -356,7 +358,7 @@ export default function FinanceMismatchesPanel({
                       </a>
                       <a
                         className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold"
-                        href={`/api/admin/cash-collections?weekKey=${encodeURIComponent(weekKey)}&q=${encodeURIComponent(row.businessName)}`}
+                        href={`/admin/cash-collections?weekKey=${encodeURIComponent(weekKey)}&q=${encodeURIComponent(row.businessName)}`}
                         target="_blank"
                         rel="noreferrer"
                       >

@@ -10,7 +10,7 @@ import { Order } from "@/models/Order";
 export const PLATFORM_DRIVER_OFFER_STATUSES = ["accepted", "preparing", "ready"] as const;
 export const DRIVER_OFFER_TTL_SECONDS = Math.max(
   20,
-  Math.min(30, Number(process.env.DRIVER_OFFER_TTL_SECONDS || 25))
+  Math.min(30, Number(process.env.DRIVER_OFFER_TTL_SECONDS || 30))
 );
 
 type DriverDispatchStatus =
@@ -18,7 +18,8 @@ type DriverDispatchStatus =
   | "offering_to_driver"
   | "driver_assigned"
   | "driver_accepted"
-  | "no_driver_available";
+  | "no_driver_available"
+  | "needs_manual_dispatch";
 
 type DispatchAttemptLean = {
   _id?: mongoose.Types.ObjectId | null;
@@ -43,6 +44,7 @@ type DispatchOrderLean = {
   businessName?: string | null;
   orderNumber?: string | null;
   customerName?: string | null;
+  phone?: string | null;
   address?: string | null;
   notes?: string | null;
   status?: string | null;
@@ -77,6 +79,8 @@ type DispatchBusinessLean = {
   _id: mongoose.Types.ObjectId;
   name?: string | null;
   address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
   zoneLabel?: string | null;
   location?: {
     coordinates?: number[] | null;
@@ -98,7 +102,8 @@ type OfferResult = {
     | "existing_offer"
     | "already_assigned"
     | "not_dispatchable"
-    | "no_driver_available";
+    | "no_driver_available"
+    | "needs_manual_dispatch";
   offer: Record<string, unknown> | null;
   driverId?: string | null;
   attemptId?: string | null;
@@ -271,11 +276,12 @@ async function loadDispatchOrder(input: {
         "_id",
         "cityId",
         "businessId",
-        "businessName",
-        "orderNumber",
-        "customerName",
-        "address",
-        "notes",
+          "businessName",
+          "orderNumber",
+          "customerName",
+          "phone",
+          "address",
+          "notes",
         "status",
         "total",
         "deliveryFeeToCustomer",
@@ -307,7 +313,7 @@ async function loadBusinessForOffer(order: DispatchOrderLean) {
   }
 
   return Business.findById(order.businessId)
-    .select("_id name address zoneLabel location")
+    .select("_id name address phone whatsapp zoneLabel location")
     .lean<DispatchBusinessLean>();
 }
 
@@ -346,6 +352,11 @@ function serializeDriverOffer(input: {
     normalizeText(input.business?.address, 220) || normalizeText(input.order.businessName, 220);
   const customerAddress = normalizeText(input.order.address, 240);
   const customerArea = extractCustomerArea(customerAddress);
+  const restaurantPhone =
+    normalizeText(input.business?.phone, 40) ||
+    normalizeText(input.business?.whatsapp, 40) ||
+    null;
+  const customerPhone = normalizeText(input.order.phone, 40) || null;
 
   return {
     orderId: String(input.order._id),
@@ -353,11 +364,13 @@ function serializeDriverOffer(input: {
     deliveryMode: "platform_driver",
     driverDispatchStatus:
       normalizeText(input.order.dispatch?.driverDispatchStatus, 40) || "offering_to_driver",
-    businessName,
-    restaurantName: businessName,
-    pickupAddress,
-    customerName: normalizeText(input.order.customerName, 100) || "Customer",
-    customerAddress,
+      businessName,
+      restaurantName: businessName,
+      restaurantPhone,
+      pickupAddress,
+      customerName: normalizeText(input.order.customerName, 100) || "Customer",
+      customerPhone,
+      customerAddress,
     customerArea,
     deliveryNotes: normalizeText(input.order.notes, 240) || null,
     estimatedDistanceKm,
@@ -410,9 +423,9 @@ async function sendOfferPush(input: {
 }) {
   const bodyArea = normalizeText(input.offer.customerArea || input.offer.customerAddress, 80) || "customer drop-off";
   await sendDriverPushNotification({
-    pushToken: input.driver?.pushToken || null,
-    title: "Nouvelle livraison AishaFood",
-    body: `${input.offer.restaurantName} -> ${bodyArea}`,
+      pushToken: input.driver?.pushToken || null,
+      title: "Nouvelle livraison OranjeEats",
+      body: `${input.offer.restaurantName} -> ${bodyArea}`,
     data: {
       type: "driver_offer",
       orderId: input.offer.orderId,
@@ -506,12 +519,12 @@ export async function offerNextDriverForOrder(input: OfferNextInput): Promise<Of
         cityId,
         "dispatch.assignedDriverId": null,
       },
-      {
-        $set: {
-          ...buildDispatchOfferResetSet("no_driver_available"),
-        },
-      }
-    );
+        {
+          $set: {
+            ...buildDispatchOfferResetSet("needs_manual_dispatch"),
+          },
+        }
+      );
 
     await auditDispatch({
       cityId,
@@ -528,7 +541,7 @@ export async function offerNextDriverForOrder(input: OfferNextInput): Promise<Of
     return {
       ok: true,
       orderId: String(order._id),
-      status: "no_driver_available",
+      status: "needs_manual_dispatch",
       offer: null,
     };
   }
@@ -831,14 +844,15 @@ export async function loadCurrentDriverOffer(input: {
   })
     .select(
       [
-        "_id",
-        "cityId",
-        "businessId",
-        "businessName",
-        "orderNumber",
-        "customerName",
-        "address",
-        "notes",
+          "_id",
+          "cityId",
+          "businessId",
+          "businessName",
+          "orderNumber",
+          "customerName",
+          "phone",
+          "address",
+          "notes",
         "status",
         "total",
         "deliveryFeeToCustomer",

@@ -81,7 +81,9 @@ function dispatchStateLabel(order: OrderRow) {
   const state = String(order.dispatch?.driverDispatchStatus || "").trim();
   if (state === "offering_to_driver") return "Offering to driver";
   if (state === "waiting_for_driver") return "Waiting for driver";
-  if (state === "no_driver_available") return "No driver available";
+  if (state === "no_driver_available" || state === "needs_manual_dispatch") {
+    return "Needs manual dispatch";
+  }
   if (state === "driver_assigned" || state === "driver_accepted") return "Driver assigned";
   if (order.dispatch?.pickupConfirmedAt) return "Picked up";
   if (order.dispatch?.assignedDriverId) return "Assigned";

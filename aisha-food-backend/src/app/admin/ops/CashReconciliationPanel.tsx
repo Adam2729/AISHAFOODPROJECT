@@ -128,6 +128,7 @@ type Props = {
   initialWeekKey: string;
   initialRows: Row[];
   initialSummary: Summary;
+  initialQuery?: string;
   fetchError?: string;
 };
 
@@ -146,11 +147,13 @@ export default function CashReconciliationPanel({
   initialWeekKey,
   initialRows,
   initialSummary,
+  initialQuery,
   fetchError,
 }: Props) {
   const router = useRouter();
   const market = useAdminLaunchMarket(true);
   const [weekKey, setWeekKey] = useState(initialWeekKey);
+  const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [summary, setSummary] = useState<Summary>(initialSummary);
   const [loading, setLoading] = useState(false);
@@ -220,15 +223,19 @@ export default function CashReconciliationPanel({
     }
   }
 
-  async function loadForWeek(nextWeekKey: string) {
+  async function loadForWeek(nextWeekKey: string, nextQuery = searchQuery) {
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const response = await fetch(
-        `/api/admin/cash-collections?weekKey=${encodeURIComponent(nextWeekKey)}&limit=200`,
-        { cache: "no-store" }
-      );
+      const params = new URLSearchParams({
+        weekKey: nextWeekKey,
+        limit: "200",
+      });
+      if (nextQuery.trim()) params.set("q", nextQuery.trim());
+      const response = await fetch(`/api/admin/cash-collections?${params.toString()}`, {
+        cache: "no-store",
+      });
       const json = await response.json().catch(() => null);
       if (!response.ok || !json?.ok) {
         throw new Error(
@@ -297,7 +304,7 @@ export default function CashReconciliationPanel({
         );
       }
       setSuccess("Driver cash marked as handed.");
-      await loadForWeek(weekKey);
+      await loadForWeek(weekKey, searchQuery);
       router.refresh();
     } catch (requestError: unknown) {
       setError(
@@ -339,7 +346,7 @@ export default function CashReconciliationPanel({
         );
       }
       setSuccess("Driver cash dispute opened.");
-      await loadForWeek(weekKey);
+      await loadForWeek(weekKey, searchQuery);
       router.refresh();
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "Could not open dispute.");
@@ -379,7 +386,7 @@ export default function CashReconciliationPanel({
         );
       }
       setSuccess(`Dispute resolved: ${resolution}.`);
-      await loadForWeek(weekKey);
+      await loadForWeek(weekKey, searchQuery);
       router.refresh();
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "Could not resolve dispute.");
@@ -519,10 +526,16 @@ export default function CashReconciliationPanel({
             placeholder="YYYY-Www"
             className="rounded border border-slate-300 px-2 py-1 text-sm"
           />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Business search"
+            className="rounded border border-slate-300 px-2 py-1 text-sm"
+          />
           <button
             type="button"
             disabled={loading || Boolean(loadingAction)}
-            onClick={() => loadForWeek(weekKey)}
+            onClick={() => loadForWeek(weekKey, searchQuery)}
             className="rounded border border-slate-300 px-3 py-1 text-sm font-semibold"
           >
             {loading ? "Loading..." : "Load Week"}
@@ -546,6 +559,11 @@ export default function CashReconciliationPanel({
         <MetricTile label="Verified" value={String(statusCounts.verified)} />
         <MetricTile label="Disputed" value={String(statusCounts.disputed)} />
       </div>
+      {searchQuery.trim() ? (
+        <p className="mt-3 text-xs text-slate-500">
+          Filtered by business search: <span className="font-semibold text-slate-700">{searchQuery.trim()}</span>
+        </p>
+      ) : null}
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile
           label="Driver Collected"
