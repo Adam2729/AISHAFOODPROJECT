@@ -4,8 +4,9 @@ import { ok, fail } from "@/lib/apiResponse";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { normalizePhone, phoneToHash } from "@/lib/phoneHash";
 import { verifyOrderHistoryAccessToken } from "@/lib/orderHistoryAccess";
+import { hashSessionId } from "@/lib/pii";
 import { formatProductSizeLabel } from "@/lib/productCatalog";
-import { requireUserSession } from "@/lib/userAuth";
+import { getUserSessionFromRequest } from "@/lib/userAuth";
 import { Order } from "@/models/Order";
 
 type HistoryBucket = {
@@ -92,9 +93,10 @@ function mapSafeOrder(order: any) {
 export async function GET(req: Request) {
   try {
     await assertNotInMaintenance();
-    const session = requireUserSession(req);
+    const session = getUserSessionFromRequest(req);
     const accessToken = String(req.headers.get("x-order-history-token") || "").trim();
     const access = verifyOrderHistoryAccessToken(accessToken);
+    const sessionId = String(req.headers.get("x-session-id") || "").trim();
 
     const url = new URL(req.url);
     const phone = String(url.searchParams.get("phone") || "").trim();
@@ -105,10 +107,10 @@ export async function GET(req: Request) {
     if (phone && !normalizedPhone) {
       return fail("VALIDATION_ERROR", "Invalid phone.", 400);
     }
-    if (phoneHash && phoneHash !== session.phoneHash) {
+    if (phoneHash && access && phoneHash !== access.phoneHash) {
       return fail(
         "UNAUTHORIZED",
-        "Phone does not match the active customer session.",
+        "Phone does not match the verified history access.",
         403
       );
     }
@@ -119,17 +121,32 @@ export async function GET(req: Request) {
         401
       );
     }
-    if (access.phoneHash !== session.phoneHash) {
+    if (!sessionId) {
+      return fail(
+        "VERIFICATION_REQUIRED",
+        "Verified checkout session required.",
+        401
+      );
+    }
+    const sessionIdHash = hashSessionId(sessionId);
+    if (!sessionIdHash || sessionIdHash !== access.sessionIdHash) {
+      return fail(
+        "UNAUTHORIZED",
+        "Verified history token does not match this checkout device.",
+        403
+      );
+    }
+    if (session && access.phoneHash !== session.phoneHash) {
       return fail("UNAUTHORIZED", "Verified history token does not match this customer session.", 403);
     }
 
-    const rate = consumeHistoryRateLimit(`${session.phoneHash}:${access.sessionIdHash}`);
+    const rate = consumeHistoryRateLimit(`${access.phoneHash}:${access.sessionIdHash}`);
     if (!rate.allowed) {
       return fail("RATE_LIMIT", "Too many requests. Try later.", 429);
     }
 
     await dbConnect();
-    let orders = await Order.find({ phoneHash: session.phoneHash })
+    let orders = await Order.find({ phoneHash: access.phoneHash })
       .select(
         "_id orderNumber businessId businessName status createdAt total deliveryFeeToCustomer items discount subtotal review"
       )

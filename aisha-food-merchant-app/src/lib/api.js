@@ -18,6 +18,14 @@ export function getApiUrl() {
   return API_URL;
 }
 
+export function toApiAssetUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const baseUrl = getApiUrl();
+  return `${baseUrl}${raw.startsWith("/") ? raw : `/${raw}`}`;
+}
+
 async function parseJsonSafely(response) {
   const text = await response.text();
   if (!text) return { json: null, rawText: "" };

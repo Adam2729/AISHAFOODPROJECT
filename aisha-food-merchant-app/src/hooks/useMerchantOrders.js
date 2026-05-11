@@ -154,19 +154,16 @@ function resolvePollInterval(orders, failedRequests) {
   return DEFAULT_POLL_MS;
 }
 
-async function submitOrderStatus(orderId, status, token) {
+async function submitOrderStatus(orderId, status, token, extra = {}) {
   const basePath = `/api/merchant/orders/${encodeURIComponent(String(orderId || "").trim())}`;
+  const payload = {
+    status,
+    ...extra,
+  };
   const attempts = [
-    () => apiRequest(basePath, "PATCH", { status }, token),
-    () => apiRequest(`${basePath}/status`, "POST", { status }, token),
+    () => apiRequest(basePath, "PATCH", payload, token),
+    () => apiRequest(`${basePath}/status`, "POST", payload, token),
   ];
-
-  if (status === "accepted") {
-    attempts.push(() => apiRequest(`${basePath}/accept`, "POST", undefined, token));
-  }
-  if (status === "cancelled") {
-    attempts.push(() => apiRequest(`${basePath}/reject`, "POST", undefined, token));
-  }
 
   let lastError = null;
   for (const attempt of attempts) {
@@ -334,13 +331,13 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
     [runRefresh]
   );
 
-  const updateOrderStatus = useCallback(async (orderId, status) => {
+  const updateOrderStatus = useCallback(async (orderId, status, extra = {}) => {
     if (!token) {
       throw new Error("You are not signed in.");
     }
 
     try {
-      const response = await submitOrderStatus(orderId, status, token);
+      const response = await submitOrderStatus(orderId, status, token, extra);
       const updated = normalizeMerchantOrder(response?.order || null);
       setOrders((current) =>
         current
@@ -363,7 +360,10 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
   }, [onUnauthorized, refreshOrders, token]);
 
   const acceptOrder = useCallback(async (orderId) => updateOrderStatus(orderId, "accepted"), [updateOrderStatus]);
-  const rejectOrder = useCallback(async (orderId) => updateOrderStatus(orderId, "cancelled"), [updateOrderStatus]);
+  const rejectOrder = useCallback(
+    async (orderId, extra = {}) => updateOrderStatus(orderId, "cancelled", extra),
+    [updateOrderStatus]
+  );
 
   useEffect(() => {
     if (!enabled || !token) {

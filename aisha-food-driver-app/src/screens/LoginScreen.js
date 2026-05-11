@@ -16,14 +16,14 @@ import { API_BASE_URL } from "../lib/config";
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const canSubmit = useMemo(
-    () => Boolean(String(phone || "").trim() && String(password || "").trim()),
-    [phone, password]
+    () => Boolean(String(identifier || "").trim() && String(password || "").trim()),
+    [identifier, password]
   );
 
   async function handleSubmit() {
@@ -34,7 +34,7 @@ export default function LoginScreen({ navigation }) {
 
     try {
       const session = await signIn({
-        phone,
+        identifier,
         password,
       });
       console.log("[LoginScreen] driver login success", session);
@@ -68,11 +68,11 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.card}>
             <Text style={styles.label}>Phone or email</Text>
             <TextInput
-              value={phone}
-              onChangeText={setPhone}
+              value={identifier}
+              onChangeText={setIdentifier}
               autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="driver@aishafood.com"
+              autoCorrect={false}
+              placeholder="driver@test.oranjeeats.com"
               placeholderTextColor="#94A3B8"
               style={styles.input}
             />

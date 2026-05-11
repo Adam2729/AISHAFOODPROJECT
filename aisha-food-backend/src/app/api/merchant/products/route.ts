@@ -102,7 +102,7 @@ export async function GET(req: Request) {
     await requireMerchantBusinessAvailable(session.businessId);
     const businessId = new mongoose.Types.ObjectId(session.businessId);
     const [products, business] = await Promise.all([
-      Product.find({ businessId }).sort({ createdAt: -1 }).lean(),
+      Product.find({ businessId, isArchived: { $ne: true } }).sort({ createdAt: -1 }).lean(),
       Business.findById(businessId)
         .select("name cityId type merchantType cuisineType storeCategory hours.timezone")
         .lean<BusinessLean | null>(),

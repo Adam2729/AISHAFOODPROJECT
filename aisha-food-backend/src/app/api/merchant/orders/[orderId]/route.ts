@@ -50,6 +50,9 @@ type PatchBody = {
   cancelReason?: string;
   cancelReasonCode?: string;
   cancelNote?: string;
+  cancellationReason?: string;
+  cancellationReasonCode?: string;
+  cancellationNote?: string;
   deliveryOtp?: string;
 };
 
@@ -318,9 +321,17 @@ export async function PATCH(
 
     const body = await readJson<PatchBody>(req);
     const requestedStatus = String(body.status || "").trim();
-    const legacyCancelReason = String(body.cancelReason || "").trim().slice(0, 280);
-    const cancelReasonCodeRaw = String(body.cancelReasonCode || "").trim();
-    const cancelNote = String(body.cancelNote || "").trim().slice(0, 280);
+    const legacyCancelReason = String(
+      body.cancelReason || body.cancellationReason || ""
+    )
+      .trim()
+      .slice(0, 280);
+    const cancelReasonCodeRaw = String(
+      body.cancelReasonCode || body.cancellationReasonCode || ""
+    ).trim();
+    const cancelNote = String(body.cancelNote || body.cancellationNote || "")
+      .trim()
+      .slice(0, 280);
     const deliveryOtp = String(body.deliveryOtp || "").trim().slice(0, 12);
     if (!requestedStatus) return finish(fail("VALIDATION_ERROR", "status is required."), 400, { orderId });
     if (!isOrderStatus(requestedStatus)) return finish(fail("VALIDATION_ERROR", "Invalid status."), 400, { orderId });

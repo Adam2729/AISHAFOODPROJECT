@@ -1,14 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import {
+  imageUploadsEnabled,
+  isAllowedImageMimeType,
+  saveUploadedImage,
+} from "@/lib/storage";
 
 type ApiError = Error & { status?: number; code?: string };
-
-const ALLOWED_IMAGE_TYPES = new Map([
-  ["image/jpeg", "jpg"],
-  ["image/png", "png"],
-  ["image/webp", "webp"],
-]);
 
 export const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -19,16 +15,11 @@ function apiError(status: number, code: string, message: string): ApiError {
   return error;
 }
 
-function cleanSegment(value: unknown) {
-  return String(value || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
-
 export function productImageUploadsEnabled() {
-  return String(process.env.PRODUCT_IMAGE_UPLOADS_DISABLED || "").trim().toLowerCase() !== "true";
+  return (
+    imageUploadsEnabled() &&
+    String(process.env.PRODUCT_IMAGE_UPLOADS_DISABLED || "").trim().toLowerCase() !== "true"
+  );
 }
 
 export function cleanProductImageUrl(value: unknown) {
@@ -80,22 +71,19 @@ export async function saveUploadedProductImage(input: {
     throw apiError(413, "IMAGE_TOO_LARGE", "Product image must be 5MB or smaller.");
   }
 
-  const extension = ALLOWED_IMAGE_TYPES.get(String(file.type || "").toLowerCase());
-  if (!extension) {
+  if (!isAllowedImageMimeType(file.type)) {
     throw apiError(400, "INVALID_IMAGE_TYPE", "Product image must be jpg, png, or webp.");
   }
-
-  const businessSegment = cleanSegment(input.businessId) || "business";
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "products", businessSegment);
-  await mkdir(uploadDir, { recursive: true });
-
-  const fileName = `${Date.now()}-${randomUUID()}.${extension}`;
-  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+  const uploaded = await saveUploadedImage({
+    businessId: input.businessId,
+    file,
+    uploadType: "product_image",
+  });
 
   return {
-    imageUrl: `/uploads/products/${businessSegment}/${fileName}`,
+    imageUrl: uploaded.relativePath,
     imageSource: "upload" as const,
-    bytes: file.size,
-    mimeType: file.type,
+    bytes: uploaded.bytes,
+    mimeType: uploaded.mimeType,
   };
 }

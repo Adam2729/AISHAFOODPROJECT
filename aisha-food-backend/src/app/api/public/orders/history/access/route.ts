@@ -2,7 +2,7 @@ import { dbConnect } from "@/lib/mongodb";
 import { ok, fail, readJson } from "@/lib/apiResponse";
 import { assertNotInMaintenance } from "@/lib/maintenance";
 import { normalizePhone, phoneToHash } from "@/lib/phoneHash";
-import { requireUserSession } from "@/lib/userAuth";
+import { getUserSessionFromRequest } from "@/lib/userAuth";
 import { hashSessionId } from "@/lib/pii";
 import { createOrderHistoryAccessToken } from "@/lib/orderHistoryAccess";
 import { Order } from "@/models/Order";
@@ -14,7 +14,7 @@ type Body = {
 export async function POST(req: Request) {
   try {
     await assertNotInMaintenance();
-    const session = requireUserSession(req);
+    const session = getUserSessionFromRequest(req);
     const body = await readJson<Body>(req).catch(() => ({} as Body));
     const phone = normalizePhone(String(body.phone || "").trim());
     const sessionId = String(req.headers.get("x-session-id") || "").trim();
@@ -31,7 +31,10 @@ export async function POST(req: Request) {
     }
 
     const phoneHash = phoneToHash(phone);
-    if (!phoneHash || phoneHash !== session.phoneHash) {
+    if (!phoneHash) {
+      return fail("VALIDATION_ERROR", "Invalid phone.", 400);
+    }
+    if (session && phoneHash !== session.phoneHash) {
       return fail(
         "UNAUTHORIZED",
         "Phone does not match the active customer session.",

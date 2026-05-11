@@ -15,7 +15,7 @@ function formatWhatsAppAmount(amount, cityOrMarket) {
   const market = getMarketConfig(cityOrMarket);
   const numericAmount = Number(amount || 0);
   const safeAmount = Number.isFinite(numericAmount) ? Math.round(numericAmount) : 0;
-  return `${safeAmount.toLocaleString("en-US")} ${market.currencyCode || "XOF"}`;
+  return `${safeAmount.toLocaleString("en-US")} ${market.currencyDisplay || "FCFA"}`;
 }
 
 function getItemQuantity(item) {

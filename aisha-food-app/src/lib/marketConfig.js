@@ -30,9 +30,9 @@ const MARKET_DEFAULTS = {
     marketCode: "ML",
     countryName: "Mali",
     defaultLanguage: "fr",
-    allowedLanguages: ["fr", "bm", "en"],
+    allowedLanguages: ["fr", "bm"],
     currencyCode: "XOF",
-    currencyDisplay: "XOF",
+    currencyDisplay: "FCFA",
     supportWhatsApp: ML_SUPPORT_WHATSAPP_DEFAULT,
     supportWhatsAppIsPlaceholder: true,
     defaultTimezone: "Africa/Bamako",
@@ -50,7 +50,7 @@ const MARKET_DEFAULTS = {
     defaultLanguage: "fr",
     allowedLanguages: ["fr", "en"],
     currencyCode: "XOF",
-    currencyDisplay: "XOF",
+    currencyDisplay: "FCFA",
     supportWhatsApp: ML_SUPPORT_WHATSAPP_DEFAULT,
     supportWhatsAppIsPlaceholder: true,
     defaultTimezone: "Africa/Dakar",
@@ -277,7 +277,12 @@ export function getMarketConfig(cityOrMarket) {
       Array.isArray(cityOrMarket?.allowedLanguages) && cityOrMarket.allowedLanguages.length
         ? cityOrMarket.allowedLanguages
             .map((value) => normalizeLower(value))
-            .filter((value, index, values) => value && values.indexOf(value) === index)
+            .filter(
+              (value, index, values) =>
+                value &&
+                values.indexOf(value) === index &&
+                base.allowedLanguages.includes(value)
+            )
         : [...base.allowedLanguages],
     currencyCode:
       normalizeUpper(cityOrMarket?.currencyCode || cityOrMarket?.currency) === "XOF"
@@ -286,8 +291,10 @@ export function getMarketConfig(cityOrMarket) {
     currencyDisplay:
       normalizeUpper(cityOrMarket?.currencyDisplay) === "RD$"
         ? "RD$"
-        : normalizeUpper(cityOrMarket?.currencyDisplay) === "XOF"
-        ? "XOF"
+        : normalizeUpper(cityOrMarket?.currencyDisplay) === "XOF" ||
+          normalizeUpper(cityOrMarket?.currencyDisplay) === "FCFA" ||
+          normalizeUpper(cityOrMarket?.currencyDisplay) === "CFA"
+        ? "FCFA"
         : base.currencyDisplay,
     supportWhatsApp,
     supportWhatsAppIsPlaceholder:
@@ -331,7 +338,7 @@ export function formatCurrencyAmount(amount, cityOrMarket) {
   if (market.currencyDisplay === "RD$") {
     return `RD$ ${safeAmount}`;
   }
-  return `${safeAmount} ${market.currencyDisplay || market.currencyCode || "XOF"}`;
+  return `${safeAmount} ${market.currencyDisplay || "FCFA"}`;
 }
 
 export function getSupportWhatsAppNumber(cityOrMarket) {

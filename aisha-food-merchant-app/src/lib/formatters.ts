@@ -6,6 +6,13 @@ export function formatCurrency(amount: number, currencyCode: string = "XOF") {
     normalizedCurrency === "DOP" ? "es-DO" : normalizedCurrency === "GBP" ? "en-GB" : "fr-ML";
   const fractionDigits = normalizedCurrency === "XOF" ? 0 : 2;
 
+  if (normalizedCurrency === "XOF") {
+    return `${new Intl.NumberFormat(locale, {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }).format(value)} FCFA`;
+  }
+
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: normalizedCurrency,

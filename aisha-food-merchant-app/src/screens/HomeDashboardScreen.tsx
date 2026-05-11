@@ -15,6 +15,9 @@ import {
 import Logo from "@/src/components/Logo";
 import NewOrderPopup from "@/src/components/NewOrderPopup";
 import OrangeButton from "@/src/components/OrangeButton";
+import OrderCancellationModal, {
+  buildMerchantCancellationPayload,
+} from "@/src/components/OrderCancellationModal";
 import OrderCard from "@/src/components/OrderCard";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import StatCard from "@/src/components/StatCard";
@@ -45,6 +48,12 @@ export default function HomeDashboardScreen() {
     usingDemoData,
   } = useMerchantApp();
   const [toggleBusy, setToggleBusy] = useState(false);
+  const [rejectingOrderId, setRejectingOrderId] = useState("");
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [selectedCancellationReason, setSelectedCancellationReason] = useState("");
+  const [cancellationNote, setCancellationNote] = useState("");
+  const [cancellationError, setCancellationError] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   if (authState !== "approved") {
     return <Redirect href={authState === "pending" ? "/pending" : "/login"} />;
@@ -87,13 +96,43 @@ export default function HomeDashboardScreen() {
   }
 
   async function onReject(orderId: string) {
+    setRejectingOrderId(orderId);
+    setCancellationError("");
+    setCancelModalVisible(true);
+  }
+
+  function resetCancellationModal() {
+    setCancelModalVisible(false);
+    setRejectingOrderId("");
+    setSelectedCancellationReason("");
+    setCancellationNote("");
+    setCancellationError("");
+    setCancelSubmitting(false);
+  }
+
+  async function confirmCancellation() {
+    if (!selectedCancellationReason) {
+      setCancellationError("Please select a cancellation reason.");
+      return;
+    }
+    if (!rejectingOrderId) {
+      resetCancellationModal();
+      return;
+    }
+
     try {
-      await rejectOrder(orderId);
+      setCancelSubmitting(true);
+      await rejectOrder(
+        rejectingOrderId,
+        buildMerchantCancellationPayload(selectedCancellationReason, cancellationNote)
+      );
+      resetCancellationModal();
+      Alert.alert("Order cancelled", "The order was cancelled successfully.");
     } catch (error: unknown) {
-      Alert.alert(
-        "Order update",
+      setCancellationError(
         (error as { message?: string })?.message || "Could not reject the order."
       );
+      setCancelSubmitting(false);
     }
   }
 
@@ -272,6 +311,24 @@ export default function HomeDashboardScreen() {
           />
         </View>
       </ScrollView>
+
+      <OrderCancellationModal
+        visible={cancelModalVisible}
+        loading={cancelSubmitting}
+        selectedReasonLabel={selectedCancellationReason}
+        note={cancellationNote}
+        inlineError={cancellationError}
+        onSelectReason={(value) => {
+          setSelectedCancellationReason(value);
+          setCancellationError("");
+        }}
+        onChangeNote={setCancellationNote}
+        onClose={() => {
+          if (cancelSubmitting) return;
+          resetCancellationModal();
+        }}
+        onConfirm={confirmCancellation}
+      />
     </>
   );
 }

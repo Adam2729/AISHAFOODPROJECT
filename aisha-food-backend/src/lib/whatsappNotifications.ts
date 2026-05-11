@@ -42,6 +42,14 @@ function normalizeText(value: unknown, max = 500) {
   return String(value || "").trim().slice(0, max);
 }
 
+function displayCurrencyLabel(value: unknown) {
+  const normalized = normalizeText(value, 16).toUpperCase();
+  if (normalized === "XOF" || normalized === "CFA" || normalized === "FCFA") {
+    return "FCFA";
+  }
+  return normalized || "FCFA";
+}
+
 function asObjectIdOrNull(value: mongoose.Types.ObjectId | string | null | undefined) {
   if (!value) return null;
   const normalized = String(value).trim();
@@ -256,7 +264,7 @@ export async function queueMerchantPayoutPaidWhatsApp(input: {
   source?: string | null;
 }) {
   const amountText = Number.isFinite(Number(input.netAmount))
-    ? `${Number(input.netAmount).toLocaleString()} ${normalizeText(input.currency, 8) || "XOF"}`
+    ? `${Number(input.netAmount).toLocaleString()} ${displayCurrencyLabel(input.currency)}`
     : "your settlement";
   await queueWhatsAppNotificationEvent({
     audience: "merchant",
@@ -284,7 +292,7 @@ export async function queueDriverPayoutPaidWhatsApp(input: {
   source?: string | null;
 }) {
   const amountText = Number.isFinite(Number(input.requestedAmount))
-    ? `${Number(input.requestedAmount).toLocaleString()} ${normalizeText(input.currency, 8) || "XOF"}`
+    ? `${Number(input.requestedAmount).toLocaleString()} ${displayCurrencyLabel(input.currency)}`
     : "your payout";
   await queueWhatsAppNotificationEvent({
     audience: "driver",

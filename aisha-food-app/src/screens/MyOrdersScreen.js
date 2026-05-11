@@ -24,7 +24,6 @@ import {
 import formatPrice from "../lib/formatPrice";
 import {
   getCustomerBusinessName,
-  getCustomerDeliveryPresentation,
   getCustomerPaymentStatusLabel,
   getCustomerSafeOrderReference,
   getSupportAvailability,
@@ -37,6 +36,43 @@ function normalizePhone(value) {
   return String(value || "").replace(/\D+/g, "").trim();
 }
 
+function getHistoryStatusLabel(status, isSpanish) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "delivered") {
+    return isSpanish ? "Entregado" : "Livree";
+  }
+  if (normalized === "cancelled") {
+    return isSpanish ? "Cancelado" : "Annulee";
+  }
+  if (normalized === "pending_payment") {
+    return isSpanish ? "Pago en espera" : "Paiement en attente";
+  }
+  return isSpanish ? "En curso" : "En cours";
+}
+
+function mapHistoryLoadError(error, text) {
+  const status = Number(error?.status || 0);
+  const code = String(error?.code || "").trim().toUpperCase();
+  const message = String(error?.message || "").trim().toLowerCase();
+
+  if (
+    status === 401 ||
+    status === 403 ||
+    code === "UNAUTHORIZED" ||
+    code === "VERIFICATION_REQUIRED" ||
+    message.includes("user auth required") ||
+    message.includes("verified checkout session required")
+  ) {
+    return text.authRequired;
+  }
+
+  if (code === "NETWORK_ERROR" || code === "TIMEOUT_ERROR" || status >= 500) {
+    return text.networkError;
+  }
+
+  return text.loadError;
+}
+
 export default function MyOrdersScreen({ navigation }) {
   const { selectedCity: city, market } = useAppShell();
   const [phone, setPhone] = useState("");
@@ -44,6 +80,7 @@ export default function MyOrdersScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [reorderLoadingId, setReorderLoadingId] = useState("");
   const [error, setError] = useState("");
+  const [historyVerified, setHistoryVerified] = useState(false);
   const supportAvailability = useMemo(() => getSupportAvailability(market), [market]);
   const isSpanish = market.defaultLanguage === "es";
   const text = isSpanish
@@ -56,12 +93,16 @@ export default function MyOrdersScreen({ navigation }) {
         missingPhone: "Ingresa tu numero para verificar y cargar tu historial.",
         verificationRequired: "Verifica desde el mismo dispositivo usado en checkout para ver tu historial.",
         loadError: "No fue posible cargar el historial de pedidos.",
+        authRequired: "Se requiere conexion para mostrar estos pedidos.",
+        networkError: "No se pueden cargar tus pedidos. Verifica tu conexion.",
         reorder: "Repetir pedido",
         reorderNeedsPhone: "Ingresa primero tu numero.",
         reorderError: "No fue posible preparar el nuevo pedido.",
         noOrders: "No se encontraron pedidos",
         noOrdersBody: "Cuando hagas tu primer pedido, aparecera aqui.",
         loadingOrders: "Cargando pedidos...",
+        verifiedTitle: "Conexion exitosa",
+        verifiedBody: "Aqui estan tus pedidos recientes.",
         order: "Referencia",
         orderReferenceUnavailable: "Referencia pendiente",
         status: "Estado",
@@ -81,12 +122,16 @@ export default function MyOrdersScreen({ navigation }) {
         missingPhone: "Entre ton numero pour verifier et charger ton historique.",
         verificationRequired: "Verifie depuis l'appareil utilise au checkout pour voir ton historique.",
         loadError: "Impossible de charger l'historique des commandes.",
+        authRequired: "Connexion requise pour afficher ces commandes.",
+        networkError: "Impossible de charger tes commandes. Verifie ta connexion.",
         reorder: "Recommander",
         reorderNeedsPhone: "Entre d'abord ton numero.",
         reorderError: "Impossible de preparer la nouvelle commande.",
         noOrders: "Aucune commande trouvee",
         noOrdersBody: "Une fois ta commande passee, elle apparaitra ici.",
         loadingOrders: "Chargement des commandes...",
+        verifiedTitle: "Connexion reussie",
+        verifiedBody: "Voici tes commandes recentes.",
         order: "Reference",
         orderReferenceUnavailable: "Reference en attente",
         status: "Statut",
@@ -148,6 +193,7 @@ export default function MyOrdersScreen({ navigation }) {
 
     setLoading(true);
     setError("");
+    setHistoryVerified(false);
     try {
       const sessionId = await getOrCreateSessionId();
       const sessionToken = await ensureUserSession(safePhone);
@@ -170,6 +216,7 @@ export default function MyOrdersScreen({ navigation }) {
         {
           headers: {
             "x-user-session": sessionToken,
+            "x-session-id": sessionId,
             "x-order-history-token": accessToken,
           },
         }
@@ -177,10 +224,12 @@ export default function MyOrdersScreen({ navigation }) {
       const rows = Array.isArray(response?.orders) ? response.orders : [];
       const enriched = await Promise.all(rows.map((row) => enrichHistoryOrder(row)));
       setOrders(enriched);
+      setHistoryVerified(enriched.length > 0);
       await persistPhone(safePhone);
     } catch (requestError) {
       setOrders([]);
-      setError(requestError?.message || text.loadError);
+      setHistoryVerified(false);
+      setError(mapHistoryLoadError(requestError, text));
     } finally {
       setLoading(false);
     }
@@ -227,6 +276,12 @@ export default function MyOrdersScreen({ navigation }) {
       </Pressable>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {historyVerified ? (
+        <View style={styles.successCard}>
+          <Text style={styles.successTitle}>{text.verifiedTitle}</Text>
+          <Text style={styles.successText}>{text.verifiedBody}</Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={orders}
@@ -252,7 +307,7 @@ export default function MyOrdersScreen({ navigation }) {
           const orderReference = getCustomerSafeOrderReference(item?.orderNumber);
           const businessName = getCustomerBusinessName(item?.businessName || item?.business?.businessName);
           const paymentStatusLabel = getCustomerPaymentStatusLabel(payment, item?.status, market);
-          const deliveryPresentation = getCustomerDeliveryPresentation(item, market);
+          const statusLabel = getHistoryStatusLabel(item?.status, isSpanish);
 
           return (
             <View style={styles.orderCard}>
@@ -260,11 +315,7 @@ export default function MyOrdersScreen({ navigation }) {
               <Text style={styles.orderMeta}>
                 {text.order}: {orderReference || text.orderReferenceUnavailable}
               </Text>
-              <Text style={styles.orderMeta}>{text.status}: {deliveryPresentation.label}</Text>
-              {deliveryPresentation.hint &&
-              !["cancelled", "delivered"].includes(deliveryPresentation.stageKey) ? (
-                <Text style={styles.orderHint}>{deliveryPresentation.hint}</Text>
-              ) : null}
+              <Text style={styles.orderMeta}>{text.status}: {statusLabel}</Text>
               {payment ? (
                 <Text style={styles.orderMeta}>
                   {text.payment}: {paymentMethodLabel(payment?.method, market)} | {paymentStatusLabel}
@@ -378,6 +429,24 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#B91C1C",
   },
+  successCard: {
+    backgroundColor: "#ECFDF3",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
+  },
+  successTitle: {
+    color: "#166534",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  successText: {
+    color: "#166534",
+    fontSize: 13,
+    lineHeight: 18,
+  },
   listContent: {
     paddingBottom: 24,
     flexGrow: 1,
@@ -419,10 +488,6 @@ const styles = StyleSheet.create({
   orderMeta: {
     color: "#475569",
     fontSize: 14,
-  },
-  orderHint: {
-    color: "#64748B",
-    fontSize: 12,
   },
   orderDate: {
     color: "#94A3B8",

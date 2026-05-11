@@ -143,7 +143,11 @@ export async function PATCH(
     }
 
     const product = await Product.findOneAndUpdate(
-      { _id: productId, businessId: new mongoose.Types.ObjectId(session.businessId) },
+      {
+        _id: productId,
+        businessId: new mongoose.Types.ObjectId(session.businessId),
+        isArchived: { $ne: true },
+      },
       { $set: update },
       { returnDocument: "after" }
     );

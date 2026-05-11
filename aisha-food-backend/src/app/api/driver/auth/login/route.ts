@@ -59,12 +59,15 @@ function normalizeLoginInput(body: LoginBody) {
   const rawIdentifier = normalizeDriverCredential(body.identifier);
   const rawPhone = normalizeDriverCredential(body.phone);
   const rawEmail = normalizeDriverEmail(body.email);
+  const phoneFieldEmail = rawPhone.includes("@")
+    ? normalizeDriverEmail(rawPhone)
+    : "";
   const identifierEmail = rawIdentifier.includes("@")
     ? normalizeDriverEmail(rawIdentifier)
     : "";
   const identifierPhone = rawIdentifier && !identifierEmail ? normalizePhone(rawIdentifier) : "";
   const phone = normalizePhone(rawPhone || identifierPhone);
-  const email = rawEmail || identifierEmail;
+  const email = rawEmail || identifierEmail || phoneFieldEmail;
 
   return {
     phone,

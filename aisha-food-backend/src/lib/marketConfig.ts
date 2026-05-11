@@ -36,7 +36,7 @@ export type MarketConfig = {
   defaultLanguage: MarketLanguage;
   allowedLanguages: MarketLanguage[];
   currencyCode: "DOP" | "XOF";
-  currencyDisplay: "RD$" | "XOF";
+  currencyDisplay: "RD$" | "FCFA";
   supportWhatsApp: string;
   supportWhatsAppIsPlaceholder: boolean;
   defaultTimezone: string;
@@ -64,9 +64,9 @@ const ML_MARKET: MarketConfig = {
   marketCode: "ML",
   countryName: "Mali",
   defaultLanguage: "fr",
-  allowedLanguages: ["fr", "bm", "en"],
+  allowedLanguages: ["fr", "bm"],
   currencyCode: "XOF",
-  currencyDisplay: "XOF",
+  currencyDisplay: "FCFA",
   supportWhatsApp: ML_SUPPORT_WHATSAPP_PLACEHOLDER,
   supportWhatsAppIsPlaceholder: true,
   defaultTimezone: "Africa/Bamako",
@@ -85,7 +85,7 @@ const SN_MARKET: MarketConfig = {
   defaultLanguage: "fr",
   allowedLanguages: ["fr", "en"],
   currencyCode: "XOF",
-  currencyDisplay: "XOF",
+  currencyDisplay: "FCFA",
   supportWhatsApp: ML_SUPPORT_WHATSAPP_PLACEHOLDER,
   supportWhatsAppIsPlaceholder: true,
   defaultTimezone: "Africa/Dakar",
@@ -284,10 +284,24 @@ export function getMarketConfig(city?: CityLike | null): MarketConfig {
   const market =
     marketCode === "ML" ? ML_MARKET : marketCode === "SN" ? SN_MARKET : DO_MARKET;
   const supportWhatsApp = deriveSupportWhatsApp(city, market.supportWhatsApp);
+  const cityAllowedLanguages = (city as { allowedLanguages?: unknown[] } | null)?.allowedLanguages;
+  const normalizedAllowedLanguages = Array.isArray(cityAllowedLanguages)
+    ? cityAllowedLanguages
+        .map((value) => normalizeLower(value) as MarketLanguage)
+        .filter(
+          (value, index, values) =>
+            Boolean(value) &&
+            values.indexOf(value) === index &&
+            market.allowedLanguages.includes(value)
+        )
+    : [];
 
   return {
     ...market,
     countryName: normalize(city?.country) || market.countryName,
+    allowedLanguages: normalizedAllowedLanguages.length
+      ? normalizedAllowedLanguages
+      : market.allowedLanguages,
     supportWhatsApp,
     supportWhatsAppIsPlaceholder: isPlaceholderSupportWhatsApp(supportWhatsApp),
     paymentMethods: derivePaymentMethods(city, market),

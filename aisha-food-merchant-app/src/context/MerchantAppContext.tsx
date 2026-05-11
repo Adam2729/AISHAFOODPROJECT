@@ -4,6 +4,7 @@ import {
   API_URL,
   apiRequest,
   getApiUrl,
+  toApiAssetUrl,
 } from "@/src/lib/api";
 import {
   clearSession,
@@ -41,6 +42,15 @@ type DashboardStats = {
   todaySales: number;
 };
 
+type MerchantPayoutShape = {
+  preferredMethod?: unknown;
+  accountName?: unknown;
+  payoutContactName?: unknown;
+  accountNumber?: unknown;
+  notes?: unknown;
+  details?: unknown;
+};
+
 type MerchantAppContextValue = {
   booting: boolean;
   authState: AuthState;
@@ -63,8 +73,12 @@ type MerchantAppContextValue = {
   dashboardStats: DashboardStats;
   refreshOrders: (options?: { silent?: boolean; debounceMs?: number }) => Promise<MerchantOrder[]>;
   acceptOrder: (orderId: string) => Promise<unknown>;
-  rejectOrder: (orderId: string) => Promise<unknown>;
-  updateOrderStatus: (orderId: string, status: string) => Promise<unknown>;
+  rejectOrder: (orderId: string, extra?: Record<string, unknown>) => Promise<unknown>;
+  updateOrderStatus: (
+    orderId: string,
+    status: string,
+    extra?: Record<string, unknown>
+  ) => Promise<unknown>;
   getOrderById: (orderId: string) => MerchantOrder | undefined;
   login: (identifier: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
@@ -96,6 +110,16 @@ function normalizeCurrencyCode(value: unknown) {
   return "XOF";
 }
 
+function resolveAssetUrl(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return toApiAssetUrl(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function buildProfile(
   settingsBusiness: Record<string, unknown> | null | undefined,
   contextBusiness: Record<string, unknown> | null | undefined,
@@ -103,6 +127,7 @@ function buildProfile(
 ): MerchantProfile {
   const fallback = fallbackProfile || mockMerchantProfile;
   const settingsHours = (settingsBusiness?.hours || null) as Record<string, unknown> | null;
+  const settingsPayout = (settingsBusiness?.payout || null) as MerchantPayoutShape | null;
 
   return {
     id: String(settingsBusiness?.id || contextBusiness?.id || fallback.id || ""),
@@ -120,9 +145,18 @@ function buildProfile(
         ? formatHours(settingsHours)
         : settingsBusiness?.openingHoursText || fallback.openingHours || ""
     ),
+    logoUrl: resolveAssetUrl(settingsBusiness?.logoUrl || fallback.logoUrl || ""),
     deliveryModel: normalizeDeliveryModel(
       settingsBusiness?.deliveryType || contextBusiness?.deliveryType || fallback.deliveryModel,
       fallback.deliveryModel
+    ),
+    payoutMethod: String(settingsPayout?.preferredMethod || fallback.payoutMethod || "cash"),
+    payoutAccountName: String(
+      settingsPayout?.accountName || settingsPayout?.payoutContactName || fallback.payoutAccountName || ""
+    ),
+    payoutAccountNumber: String(settingsPayout?.accountNumber || fallback.payoutAccountNumber || ""),
+    payoutNotes: String(
+      settingsPayout?.notes || settingsPayout?.details || fallback.payoutNotes || ""
     ),
     approved: true,
     currencyCode: normalizeCurrencyCode(contextBusiness?.currencyCode || fallback.currencyCode),
@@ -153,6 +187,26 @@ function formatHours(hours: Record<string, unknown>) {
   const sample = (hours.weekly as Record<string, { open?: string; close?: string }>)[firstOpenDay];
   const range = [String(sample?.open || "").trim(), String(sample?.close || "").trim()].filter(Boolean).join(" - ");
   return timezone && range ? `${range} (${timezone})` : range || timezone;
+}
+
+function buildUniformWeeklyHours(openingHours: string) {
+  const normalized = String(openingHours || "").trim();
+  const match = normalized.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})(?:\s*\((.+)\))?$/i);
+  if (!match) return null;
+
+  const [, open, close] = match;
+  return {
+    timezone: "Africa/Bamako",
+    weekly: {
+      mon: { open, close, closed: false },
+      tue: { open, close, closed: false },
+      wed: { open, close, closed: false },
+      thu: { open, close, closed: false },
+      fri: { open, close, closed: false },
+      sat: { open, close, closed: false },
+      sun: { open, close, closed: false },
+    },
+  };
 }
 
 function buildPendingApplication(
@@ -452,11 +506,24 @@ export function MerchantAppProvider({ children }: { children: React.ReactNode })
           whatsapp: nextLocalProfile.whatsapp,
           address: nextLocalProfile.address,
           area: nextLocalProfile.area || "",
+          logoUrl: nextLocalProfile.logoUrl || "",
         };
         if (nextLocalProfile.deliveryModel !== "both") {
           body.deliveryType =
             nextLocalProfile.deliveryModel === "platform_driver" ? "platform_driver" : "own_driver";
         }
+        const parsedHours = buildUniformWeeklyHours(nextLocalProfile.openingHours);
+        if (parsedHours) {
+          body.hours = parsedHours;
+        }
+        body.payout = {
+          preferredMethod: nextLocalProfile.payoutMethod || "cash",
+          accountName: nextLocalProfile.payoutAccountName || "",
+          payoutContactName: nextLocalProfile.payoutAccountName || "",
+          accountNumber: nextLocalProfile.payoutAccountNumber || "",
+          notes: nextLocalProfile.payoutNotes || "",
+          details: nextLocalProfile.payoutNotes || "",
+        };
 
         const response = await apiRequest(
           "/api/merchant/business/settings",

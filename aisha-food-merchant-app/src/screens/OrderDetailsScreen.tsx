@@ -3,6 +3,9 @@ import { useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import OrangeButton from "@/src/components/OrangeButton";
+import OrderCancellationModal, {
+  buildMerchantCancellationPayload,
+} from "@/src/components/OrderCancellationModal";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import StatusBadge from "@/src/components/StatusBadge";
 import { useMerchantApp } from "@/src/context/MerchantAppContext";
@@ -42,6 +45,10 @@ export default function OrderDetailsScreen() {
   const { authState, getOrderById, updateOrderStatus } = useMerchantApp();
   const order = getOrderById(String(params.id || ""));
   const [actionLoading, setActionLoading] = useState("");
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [selectedCancellationReason, setSelectedCancellationReason] = useState("");
+  const [cancellationNote, setCancellationNote] = useState("");
+  const [cancellationError, setCancellationError] = useState("");
 
   if (authState !== "approved") {
     return <Redirect href={authState === "pending" ? "/pending" : "/login"} />;
@@ -104,6 +111,12 @@ export default function OrderDetailsScreen() {
   }[];
 
   async function onUpdateStatus(nextStatus: string, label: string) {
+    if (nextStatus === "cancelled") {
+      setCancellationError("");
+      setCancelModalVisible(true);
+      return;
+    }
+
     try {
       setActionLoading(label);
       await updateOrderStatus(currentOrder.id, nextStatus);
@@ -117,115 +130,168 @@ export default function OrderDetailsScreen() {
     }
   }
 
+  function resetCancellationModal() {
+    setCancelModalVisible(false);
+    setSelectedCancellationReason("");
+    setCancellationNote("");
+    setCancellationError("");
+  }
+
+  async function confirmCancellation() {
+    if (!selectedCancellationReason) {
+      setCancellationError("Please select a cancellation reason.");
+      return;
+    }
+
+    try {
+      setActionLoading("Cancel Order");
+      setCancellationError("");
+      await updateOrderStatus(
+        currentOrder.id,
+        "cancelled",
+        buildMerchantCancellationPayload(selectedCancellationReason, cancellationNote)
+      );
+      resetCancellationModal();
+      Alert.alert("Order cancelled", "The order was cancelled successfully.");
+    } catch (error: unknown) {
+      setCancellationError(
+        (error as { message?: string })?.message || "Could not cancel the order."
+      );
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <ScreenHeader
-        title={currentOrder.orderNumber}
-        subtitle={currentOrder.customerName}
-        onBackPress={() => router.back()}
-      />
+    <>
+      <ScrollView contentContainerStyle={styles.content}>
+        <ScreenHeader
+          title={currentOrder.orderNumber}
+          subtitle={currentOrder.customerName}
+          onBackPress={() => router.back()}
+        />
 
-      <View style={styles.card}>
-        <View style={styles.badgeRow}>
-          <StatusBadge
-            label={currentOrder.status.replace(/_/g, " ")}
-            tone={toneForStatus(currentOrder.status) as never}
-          />
-          <StatusBadge
-            label={currentOrder.paymentStatus}
-            tone={toneForStatus(currentOrder.paymentStatus) as never}
-          />
-        </View>
-
-        <InfoRow label="Customer phone" value={currentOrder.customerPhone || "Not available"} />
-        <InfoRow label="Delivery mode" value={currentOrder.deliveryMode} />
-        <InfoRow label="Payment method" value={currentOrder.paymentMethod} />
-        <InfoRow label="Payment status" value={currentOrder.paymentStatus} />
-        <InfoRow label="Delivery address" value={currentOrder.address || "Not available"} />
-        <InfoRow label="Delivery note" value={currentOrder.deliveryNote || "No note"} />
-        {currentOrder.driverName ? (
-          <InfoRow label="Driver" value={currentOrder.driverName} />
-        ) : null}
-      </View>
-
-      {currentOrder.deliveryMode === "platform_driver" ? (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Driver handoff</Text>
-          <InfoRow label="Driver status" value={labelForDriverStatus(currentOrder.driverStatus || "")} />
-          {currentOrder.driverEtaMinutes != null ? (
-            <InfoRow label="ETA to pickup" value={`${currentOrder.driverEtaMinutes} min`} />
-          ) : null}
-          {currentOrder.driverLocation ? (
-            <InfoRow
-              label="Latest location"
-              value={`${Number(currentOrder.driverLocation.latitude).toFixed(5)}, ${Number(
-                currentOrder.driverLocation.longitude
-              ).toFixed(5)}`}
+          <View style={styles.badgeRow}>
+            <StatusBadge
+              label={currentOrder.status.replace(/_/g, " ")}
+              tone={toneForStatus(currentOrder.status) as never}
             />
-          ) : (
-            <Text style={styles.driverUnavailable}>Driver location unavailable</Text>
-          )}
-        </View>
-      ) : null}
+            <StatusBadge
+              label={currentOrder.paymentStatus}
+              tone={toneForStatus(currentOrder.paymentStatus) as never}
+            />
+          </View>
 
-      {currentOrder.status === "ready" && !isSelfDelivery ? (
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Waiting for Driver Pickup</Text>
-          <Text style={styles.infoBody}>
-            This order is assigned to platform delivery. The merchant can accept, prepare and mark it ready. Driver handoff happens from here.
-          </Text>
-          {currentOrder.driverEtaMinutes != null ? (
-            <Text style={styles.infoBody}>ETA to pickup: {currentOrder.driverEtaMinutes} min</Text>
+          <InfoRow label="Customer phone" value={currentOrder.customerPhone || "Not available"} />
+          <InfoRow label="Delivery mode" value={currentOrder.deliveryMode} />
+          <InfoRow label="Payment method" value={currentOrder.paymentMethod} />
+          <InfoRow label="Payment status" value={currentOrder.paymentStatus} />
+          <InfoRow label="Delivery address" value={currentOrder.address || "Not available"} />
+          <InfoRow label="Delivery note" value={currentOrder.deliveryNote || "No note"} />
+          {currentOrder.driverName ? (
+            <InfoRow label="Driver" value={currentOrder.driverName} />
           ) : null}
         </View>
-      ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Items</Text>
-        {currentOrder.items.map((item) => (
-          <View key={item.id} style={styles.itemRow}>
-            <Text style={styles.itemName}>
-              {item.name} x{item.quantity}
+        {currentOrder.deliveryMode === "platform_driver" ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Driver handoff</Text>
+            <InfoRow label="Driver status" value={labelForDriverStatus(currentOrder.driverStatus || "")} />
+            {currentOrder.driverEtaMinutes != null ? (
+              <InfoRow label="ETA to pickup" value={`${currentOrder.driverEtaMinutes} min`} />
+            ) : null}
+            {currentOrder.driverLocation ? (
+              <InfoRow
+                label="Latest location"
+                value={`${Number(currentOrder.driverLocation.latitude).toFixed(5)}, ${Number(
+                  currentOrder.driverLocation.longitude
+                ).toFixed(5)}`}
+              />
+            ) : (
+              <Text style={styles.driverUnavailable}>Driver location unavailable</Text>
+            )}
+          </View>
+        ) : null}
+
+        {currentOrder.status === "ready" && !isSelfDelivery ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Waiting for Driver Pickup</Text>
+            <Text style={styles.infoBody}>
+              This order is assigned to platform delivery. The merchant can accept, prepare and mark it ready. Driver handoff happens from here.
             </Text>
-            <Text style={styles.itemPrice}>
-              {formatCurrency(item.quantity * item.price, currentOrder.currencyCode)}
+            {currentOrder.driverEtaMinutes != null ? (
+              <Text style={styles.infoBody}>ETA to pickup: {currentOrder.driverEtaMinutes} min</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Items</Text>
+          {currentOrder.items.map((item) => (
+            <View key={item.id} style={styles.itemRow}>
+              <Text style={styles.itemName}>
+                {item.name} x{item.quantity}
+              </Text>
+              <Text style={styles.itemPrice}>
+                {formatCurrency(item.quantity * item.price, currentOrder.currencyCode)}
+              </Text>
+            </View>
+          ))}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>
+              {formatCurrency(currentOrder.total, currentOrder.currencyCode)}
             </Text>
           </View>
-        ))}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>
-            {formatCurrency(currentOrder.total, currentOrder.currencyCode)}
-          </Text>
         </View>
-      </View>
 
-      <View style={styles.actionsCard}>
-        <OrangeButton
-          label="Call Customer"
-          variant="outline"
-          onPress={() => openTel(currentOrder.customerPhone)}
-          disabled={!currentOrder.customerPhone}
-        />
-        {currentOrder.driverName ? (
+        <View style={styles.actionsCard}>
           <OrangeButton
-            label="Call Driver"
+            label="Call Customer"
             variant="outline"
-            onPress={() => openTel(assignedDriverPhone)}
-            disabled={!assignedDriverPhone}
+            onPress={() => openTel(currentOrder.customerPhone)}
+            disabled={!currentOrder.customerPhone}
           />
-        ) : null}
-        {actionButtons.map((button) => (
-          <OrangeButton
-            key={button.label}
-            label={button.label}
-            onPress={() => onUpdateStatus(button.nextStatus, button.label)}
-            variant={button.variant}
-            loading={actionLoading === button.label}
-          />
-        ))}
-      </View>
-    </ScrollView>
+          {currentOrder.driverName ? (
+            <OrangeButton
+              label="Call Driver"
+              variant="outline"
+              onPress={() => openTel(assignedDriverPhone)}
+              disabled={!assignedDriverPhone}
+            />
+          ) : null}
+          {actionButtons.map((button) => (
+            <OrangeButton
+              key={button.label}
+              label={button.label}
+              onPress={() => onUpdateStatus(button.nextStatus, button.label)}
+              variant={button.variant}
+              loading={actionLoading === button.label}
+              disabled={Boolean(actionLoading)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+
+      <OrderCancellationModal
+        visible={cancelModalVisible}
+        loading={actionLoading === "Cancel Order"}
+        selectedReasonLabel={selectedCancellationReason}
+        note={cancellationNote}
+        inlineError={cancellationError}
+        onSelectReason={(value) => {
+          setSelectedCancellationReason(value);
+          setCancellationError("");
+        }}
+        onChangeNote={setCancellationNote}
+        onClose={() => {
+          if (actionLoading === "Cancel Order") return;
+          resetCancellationModal();
+        }}
+        onConfirm={confirmCancellation}
+      />
+    </>
   );
 }
 

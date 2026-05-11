@@ -45,9 +45,9 @@ export function getCustomerUiCopy(cityOrMarket) {
 export function getHomeSurfaceTabs(cityOrMarket) {
   const { isSpanish } = getCustomerUiCopy(cityOrMarket);
   return [
-    { key: "food", label: isSpanish ? "Comida" : "Food" },
-    { key: "shops", label: isSpanish ? "Tiendas" : "Shops" },
-    { key: "courier", label: "Courier" },
+    { key: "food", label: isSpanish ? "Comida" : "Repas" },
+    { key: "shops", label: isSpanish ? "Tiendas" : "Boutiques" },
+    { key: "courier", label: isSpanish ? "Courier" : "Course" },
   ];
 }
 

@@ -73,6 +73,12 @@ export function formatMoneyForProfile(
 ) {
   const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
   const fractionDigits = moneyFractionDigits(profile);
+  if (profile.currencyCode === "XOF") {
+    return `${new Intl.NumberFormat(profile.locale, {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }).format(safeValue)} ${profile.currencyDisplay || "FCFA"}`;
+  }
   return new Intl.NumberFormat(profile.locale, {
     style: "currency",
     currency: profile.currencyCode,

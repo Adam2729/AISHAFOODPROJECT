@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { mockMenuItems } from "@/src/data/mockData";
-import { apiRequest } from "@/src/lib/api";
+import { apiRequest, toApiAssetUrl } from "@/src/lib/api";
 import { getToken } from "@/src/lib/session";
 
 function createError(message, extra = {}) {
@@ -32,13 +32,13 @@ function normalizeProduct(product, businessCurrencyCode = "XOF") {
     category: String(product?.category || "Uncategorized").trim() || "Uncategorized",
     description: String(product?.description || "").trim(),
     price: normalizeMoney(product?.price),
-    imageUrl: String(
+    imageUrl: normalizeImageUrl(
       product?.imageUrl ||
         product?.image?.url ||
         product?.photoUrl ||
         product?.thumbnailUrl ||
         ""
-    ).trim(),
+    ),
     available:
       typeof product?.isAvailable === "boolean"
         ? product.isAvailable
@@ -49,6 +49,16 @@ function normalizeProduct(product, businessCurrencyCode = "XOF") {
     ),
     raw: product,
   };
+}
+
+function normalizeImageUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return toApiAssetUrl(raw);
+  } catch {
+    return raw;
+  }
 }
 
 function extractProductsFromResponse(response) {
@@ -114,6 +124,8 @@ export function useMerchantProducts() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [usingDemoData, setUsingDemoData] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [business, setBusiness] = useState(null);
 
   const inFlightRef = useRef(false);
   const productsRef = useRef([]);
@@ -143,6 +155,14 @@ export function useMerchantProducts() {
       const response = await apiRequest("/api/merchant/products", "GET", undefined, token);
       const normalized = extractProductsFromResponse(response);
       setProducts(normalized);
+      setCategories(
+        Array.isArray(response?.categories)
+          ? response.categories
+              .map((category) => String(category?.name || category || "").trim())
+              .filter(Boolean)
+          : []
+      );
+      setBusiness(response?.business || null);
       setUsingDemoData(false);
       setError("");
       return normalized;
@@ -170,6 +190,12 @@ export function useMerchantProducts() {
       if (!productsRef.current.length) {
         setProducts(fallback);
       }
+      setCategories(
+        Array.from(
+          new Set(fallback.map((item) => String(item.category || "").trim()).filter(Boolean))
+        )
+      );
+      setBusiness(null);
       setUsingDemoData(true);
       return productsRef.current.length ? productsRef.current : fallback;
     } finally {
@@ -280,6 +306,20 @@ export function useMerchantProducts() {
     return true;
   }, []);
 
+  const deleteProduct = useCallback(async (productId) => {
+    const token = await getSessionToken();
+    await apiRequest(
+      `/api/merchant/products/${encodeURIComponent(String(productId || "").trim())}`,
+      "DELETE",
+      undefined,
+      token
+    );
+    setProducts((current) => current.filter((item) => item.id !== String(productId || "").trim()));
+    setUsingDemoData(false);
+    setError("");
+    return true;
+  }, []);
+
   useEffect(() => {
     refreshProducts().catch(() => null);
   }, [refreshProducts]);
@@ -287,6 +327,8 @@ export function useMerchantProducts() {
   return useMemo(
     () => ({
       products,
+      categories,
+      business,
       loading,
       refreshing,
       error,
@@ -296,10 +338,14 @@ export function useMerchantProducts() {
       updateProduct,
       toggleAvailability,
       bulkSetAvailability,
+      deleteProduct,
     }),
     [
+      business,
       bulkSetAvailability,
+      categories,
       createProduct,
+      deleteProduct,
       error,
       loading,
       products,

@@ -18,11 +18,15 @@ function buildCheck(id, label, ok, detail) {
 }
 
 function expectedLanguageLabel(marketCode) {
-  return marketCode === "ML" ? "French" : "Spanish";
+  return marketCode === "ML" ? "French / Bambara" : "Spanish";
 }
 
 function expectedCurrencyLabel(marketCode) {
-  return marketCode === "ML" ? "XOF" : "RD$";
+  return marketCode === "ML" ? "FCFA" : "RD$";
+}
+
+function expectedAllowedLanguages(marketCode) {
+  return marketCode === "ML" ? ["fr", "bm"] : ["es", "en"];
 }
 
 function apiTargetIsSafe(profile) {
@@ -172,6 +176,17 @@ export async function runLaunchValidation() {
       "Default language matches the selected market",
       market.defaultLanguage === (market.marketCode === "ML" ? "fr" : "es"),
       `${market.defaultLanguage} / expected ${expectedLanguageLabel(market.marketCode)}`
+    )
+  );
+  checks.push(
+    buildCheck(
+      "language-options",
+      "Allowed languages match the selected market",
+      JSON.stringify([...(market.allowedLanguages || [])].sort()) ===
+        JSON.stringify(expectedAllowedLanguages(market.marketCode).sort()),
+      `${(market.allowedLanguages || []).join(", ")} / expected ${expectedAllowedLanguages(
+        market.marketCode
+      ).join(", ")}`
     )
   );
   checks.push(

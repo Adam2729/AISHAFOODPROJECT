@@ -10,23 +10,10 @@ import {
 } from "react-native";
 
 import OrangeButton from "@/src/components/OrangeButton";
+import { formatCurrency } from "@/src/lib/formatters";
 import { playSound } from "@/src/lib/soundManager";
 import { speak } from "@/src/lib/voiceManager";
 import { colors } from "@/src/theme/colors";
-
-function formatCurrency(amount, currencyCode = "XOF") {
-  const currency = String(currencyCode || "XOF").trim().toUpperCase();
-  const normalizedCurrency = currency === "DOP" || currency === "GBP" ? currency : "XOF";
-  const locale =
-    normalizedCurrency === "DOP" ? "es-DO" : normalizedCurrency === "GBP" ? "en-GB" : "fr-ML";
-  const minimumFractionDigits = normalizedCurrency === "XOF" ? 0 : 2;
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: normalizedCurrency,
-    minimumFractionDigits,
-    maximumFractionDigits: minimumFractionDigits,
-  }).format(Number(amount || 0));
-}
 
 export default function NewOrderPopup({ order, onAccept, onReject }) {
   const [handledOrderIds, setHandledOrderIds] = useState([]);

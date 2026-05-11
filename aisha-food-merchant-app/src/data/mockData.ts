@@ -73,7 +73,12 @@ export type MerchantProfile = {
   city: string;
   cuisineType: string;
   openingHours: string;
+  logoUrl?: string;
   deliveryModel: DeliveryModel;
+  payoutMethod?: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutNotes?: string;
   approved: boolean;
   currencyCode?: "XOF" | "DOP" | "GBP";
   supportWhatsApp?: string;
@@ -114,7 +119,12 @@ export const mockMerchantProfile: MerchantProfile = {
   city: "Bamako",
   cuisineType: "Grillades & Fast Food",
   openingHours: "10:00 - 23:00",
+  logoUrl: "",
   deliveryModel: "both",
+  payoutMethod: "wave",
+  payoutAccountName: "OranjeEats Test Kitchen",
+  payoutAccountNumber: "+22370000001",
+  payoutNotes: "",
   approved: true,
   currencyCode: "XOF",
   supportWhatsApp: SUPPORT_WHATSAPP,
