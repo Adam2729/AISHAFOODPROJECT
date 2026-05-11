@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -10,6 +10,8 @@ import {
 } from "react-native";
 
 import OrangeButton from "@/src/components/OrangeButton";
+import { playSound } from "@/src/lib/soundManager";
+import { speak } from "@/src/lib/voiceManager";
 import { colors } from "@/src/theme/colors";
 
 function formatCurrency(amount, currencyCode = "XOF") {
@@ -26,22 +28,10 @@ function formatCurrency(amount, currencyCode = "XOF") {
   }).format(Number(amount || 0));
 }
 
-async function playNotificationSound() {
-  try {
-    const expoAv = require("expo-av");
-    if (!expoAv?.Audio?.Sound) return null;
-    // No packaged merchant alert sound is wired yet. Skip safely until an asset is added.
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export default function NewOrderPopup({ order, onAccept, onReject }) {
   const [handledOrderIds, setHandledOrderIds] = useState([]);
   const [visibleOrderId, setVisibleOrderId] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
-  const soundRef = useRef(null);
 
   const currentOrderId = String(order?.id || "").trim();
   const shouldShowOrder =
@@ -55,19 +45,11 @@ export default function NewOrderPopup({ order, onAccept, onReject }) {
 
     setVisibleOrderId(currentOrderId);
     setSecondsLeft(30);
-    Vibration.vibrate(400);
+    Vibration.vibrate([0, 400, 180, 400]);
+    playSound("new_order").catch(() => null);
+    speak("New order received");
 
-    playNotificationSound()
-      .then((sound) => {
-        soundRef.current = sound;
-      })
-      .catch(() => null);
-
-    return () => {
-      const sound = soundRef.current;
-      soundRef.current = null;
-      sound?.unloadAsync?.().catch(() => null);
-    };
+    return undefined;
   }, [currentOrderId, shouldShowOrder]);
 
   useEffect(() => {

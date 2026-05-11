@@ -9,6 +9,8 @@
     "lint": "eslint",
     "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seedDemo.ts",
     "seed:merchant-mvp": "tsx src/scripts/seedMerchantMvpTest.ts",
+    "seed:driver-dispatch-mvp": "tsx src/scripts/seedDriverDispatchMvpTest.ts",
+    "smoke:e2e-mvp": "tsx src/scripts/smokeEndToEndMvp.ts",
     "qa:smoke": "node scripts/smokeSuite.js",
     "qa:smoke:win": "powershell -ExecutionPolicy Bypass -File scripts/smokeSuite.ps1",
     "qa:smoke:integrity": "node scripts/smokeRevenueIntegrity.js",

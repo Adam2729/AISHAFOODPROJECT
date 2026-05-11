@@ -28,8 +28,10 @@ import {
   getSupportAvailability,
   getVisibleDeliveryOtp,
 } from "../lib/orderPresentation";
+import { playSound } from "../lib/soundManager";
 import { openSupportWhatsApp } from "../lib/supportWhatsApp";
 import { getCustomerUiCopy } from "../lib/customerUi";
+import { speak } from "../lib/voiceManager";
 
 function isObjectIdLike(value) {
   return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
@@ -72,6 +74,8 @@ export default function TrackScreen({ route }) {
   const inFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const previousPaymentStatusRef = useRef("");
+  const previousOrderStatusRef = useRef("");
+  const previousStageKeyRef = useRef("");
 
   const uiCopy = useMemo(() => getCustomerUiCopy(market), [market]);
   const supportAvailability = useMemo(() => getSupportAvailability(market), [market]);
@@ -270,6 +274,37 @@ export default function TrackScreen({ route }) {
     Number.isFinite(Number(snapshot?.etaMinutes)) &&
     !["pending_payment", "cancelled", "delivered"].includes(deliveryPresentation.stageKey);
   const currentDriverStatus = driverStatusLabel(deliveryPresentation.stageKey);
+
+  useEffect(() => {
+    if (!snapshot) return;
+
+    const nextOrderStatus = String(currentStatus || "").trim().toLowerCase();
+    const nextStageKey = String(deliveryPresentation.stageKey || "").trim().toLowerCase();
+    const previousOrderStatus = previousOrderStatusRef.current;
+    const previousStageKey = previousStageKeyRef.current;
+
+    if (!previousOrderStatus && !previousStageKey) {
+      previousOrderStatusRef.current = nextOrderStatus;
+      previousStageKeyRef.current = nextStageKey;
+      return;
+    }
+
+    if (nextOrderStatus === "accepted" && previousOrderStatus !== "accepted") {
+      playSound("accepted").catch(() => null);
+    }
+
+    if (nextStageKey === "arriving_soon" && previousStageKey !== "arriving_soon") {
+      playSound("message").catch(() => null);
+      speak("Driver nearby");
+    }
+
+    if (nextOrderStatus === "delivered" && previousOrderStatus !== "delivered") {
+      playSound("delivered").catch(() => null);
+    }
+
+    previousOrderStatusRef.current = nextOrderStatus;
+    previousStageKeyRef.current = nextStageKey;
+  }, [currentStatus, deliveryPresentation.stageKey, snapshot]);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>

@@ -47,6 +47,8 @@ import { clearOfferNotificationMarker, announceIncomingOffer } from "../lib/offe
 import { getDriverPollingInterval } from "../lib/orderEvents";
 import { formatCurrency } from "../lib/orderUtils";
 import { useFocusedPolling } from "../lib/polling";
+import { playSound } from "../lib/soundManager";
+import { speak } from "../lib/voiceManager";
 
 function isDriverOnline(availability) {
   const value = String(availability || "offline").trim().toLowerCase();
@@ -543,6 +545,7 @@ export default function HomeScreen({ navigation }) {
         );
       }
       await loadDashboard({ silent: true });
+      playSound("accepted").catch(() => null);
       setMessage("Commande acceptee. Dirigez-vous vers le retrait.");
     } catch (requestError) {
       if (isRetryableDriverActionError(requestError)) {
@@ -656,6 +659,14 @@ export default function HomeScreen({ navigation }) {
         }
         await run();
         await loadDashboard({ silent: true });
+        if (action === "arrived_restaurant") {
+          playSound("accepted").catch(() => null);
+        } else if (action === "arrived_customer") {
+          playSound("message").catch(() => null);
+          speak("Customer nearby");
+        } else if (action === "delivered") {
+          playSound("delivered_success").catch(() => null);
+        }
         setMessage(
           action === "arrived_restaurant"
             ? "Arrivee au restaurant confirmee."

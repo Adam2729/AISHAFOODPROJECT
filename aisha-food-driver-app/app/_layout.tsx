@@ -4,6 +4,14 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/lib/auth";
 import {
+  cleanupSoundManager,
+  initializeSoundManager,
+} from "../src/lib/soundManager";
+import {
+  cleanupVoiceManager,
+  initializeVoiceManager,
+} from "../src/lib/voiceManager";
+import {
   installOfferNotificationHandler,
   registerOfferNotificationResponseListener,
 } from "../src/lib/offerNotifications";
@@ -15,6 +23,8 @@ export default function RootLayout() {
     let unsubscribe = () => {};
     let active = true;
 
+    initializeSoundManager().catch(() => null);
+    initializeVoiceManager();
     installOfferNotificationHandler().catch(() => null);
 
     registerOfferNotificationResponseListener((data) => {
@@ -38,6 +48,8 @@ export default function RootLayout() {
     return () => {
       active = false;
       unsubscribe();
+      cleanupVoiceManager();
+      cleanupSoundManager().catch(() => null);
     };
   }, [router]);
 

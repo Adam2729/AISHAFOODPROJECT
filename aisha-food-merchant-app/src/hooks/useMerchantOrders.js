@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { mockOrders } from "@/src/data/mockData";
 import { apiRequest } from "@/src/lib/api";
+import { playSound } from "@/src/lib/soundManager";
+import { speak } from "@/src/lib/voiceManager";
 
 const ACTIVE_STATUSES = ["new", "accepted", "preparing", "ready", "out_for_delivery"];
 const LIVE_FAST_STATUSES = ["new", "accepted", "preparing"];
@@ -197,10 +199,37 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
   const ordersRef = useRef([]);
   const failureCountRef = useRef(0);
   const debounceTimerRef = useRef(null);
+  const previousStatusesRef = useRef(new Map());
 
   useEffect(() => {
     ordersRef.current = orders;
     setIsLiveFastMode(resolvePollInterval(orders, failureCountRef.current) < DEFAULT_POLL_MS);
+  }, [orders]);
+
+  useEffect(() => {
+    const previousStatuses = previousStatusesRef.current;
+    const nextStatuses = new Map();
+    let deliveredTransitionDetected = false;
+
+    orders.forEach((order) => {
+      const orderId = String(order?.id || "").trim();
+      const nextStatus = String(order?.status || "").trim().toLowerCase();
+      if (!orderId) return;
+
+      const previousStatus = String(previousStatuses.get(orderId) || "").trim().toLowerCase();
+      if (previousStatus && previousStatus !== nextStatus && nextStatus === "delivered") {
+        deliveredTransitionDetected = true;
+      }
+
+      nextStatuses.set(orderId, nextStatus);
+    });
+
+    previousStatusesRef.current = nextStatuses;
+
+    if (deliveredTransitionDetected) {
+      playSound("delivered_success").catch(() => null);
+      speak("Order delivered");
+    }
   }, [orders]);
 
   const runRefresh = useCallback(async (options = {}) => {
@@ -320,6 +349,9 @@ export function useMerchantOrders({ token, enabled, onUnauthorized }) {
           .sort(byCreatedAtDesc)
       );
       setError("");
+      if (status === "accepted") {
+        playSound("accepted").catch(() => null);
+      }
       refreshOrders({ silent: true, debounceMs: MUTATION_REFRESH_DEBOUNCE_MS }).catch(() => null);
       return updated;
     } catch (requestError) {

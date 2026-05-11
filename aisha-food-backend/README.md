@@ -69,6 +69,66 @@ Seed notes:
 - Demo orders: `2` (`new` and `preparing`)
 - The seeded business uses the canonical backend delivery type `platform_driver` because the live `Business` schema does not support `both`.
 
+## Driver Dispatch MVP Local Test Flow
+Use this when testing the OranjeEats merchant app and driver app together against the backend.
+
+1. Start MongoDB and install backend dependencies:
+```bash
+npm install
+```
+
+2. Start the backend from the `aisha-food-backend/` folder:
+```bash
+npm run dev
+```
+
+3. Seed the local dispatch MVP test data:
+```bash
+npm run seed:driver-dispatch-mvp
+```
+
+4. In both mobile apps, point the API to your computer IP, not `localhost`:
+```bash
+# aisha-food-merchant-app/.env
+EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:3000
+
+# aisha-food-driver-app/.env
+EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:3000
+```
+
+5. Start the merchant app and driver app:
+```bash
+# Merchant app
+npx expo start --clear
+
+# Driver app
+npx expo start --clear
+```
+
+6. Login with the seeded credentials:
+- Merchant email: `merchant@test.oranjeeats.com`
+- Merchant phone: `+22370000001`
+- Merchant password: `Password123!`
+- Driver email: `driver@test.oranjeeats.com`
+- Driver phone: `+22370000002`
+- Driver password: `Password123!`
+
+7. Test the dispatch flow:
+- Login to the merchant app.
+- Login to the driver app.
+- Set the driver status to online.
+- Open order `DDMVP-BKO-PREPARING` in the merchant app.
+- Mark the order `ready`.
+- Confirm an incoming offer appears in the driver app.
+- Accept the offer in the driver app.
+- Confirm active delivery opens and the status actions work.
+- Confirm merchant/customer tracking surfaces the assigned driver details.
+
+Seed notes:
+- Driver name: `OranjeEats Test Driver`
+- Driver app must never show order `DDMVP-BKO-SELFDELIVERY`
+- `DDMVP-BKO-READY` is seeded as a ready but unassigned `platform_driver` order for dispatch board testing
+
 ## QA Smoke Suite
 Runs end-to-end checks automatically:
 - create business

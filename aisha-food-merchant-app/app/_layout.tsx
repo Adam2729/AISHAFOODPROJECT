@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ThemeProvider, DefaultTheme } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -5,6 +6,14 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { MerchantAppProvider } from "@/src/context/MerchantAppContext";
+import {
+  cleanupSoundManager,
+  initializeSoundManager,
+} from "@/src/lib/soundManager";
+import {
+  cleanupVoiceManager,
+  initializeVoiceManager,
+} from "@/src/lib/voiceManager";
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -20,6 +29,16 @@ const navigationTheme = {
 };
 
 export default function RootLayout() {
+  useEffect(() => {
+    initializeSoundManager().catch(() => null);
+    initializeVoiceManager();
+
+    return () => {
+      cleanupVoiceManager();
+      cleanupSoundManager().catch(() => null);
+    };
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

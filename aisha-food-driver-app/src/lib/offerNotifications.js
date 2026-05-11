@@ -2,13 +2,13 @@ import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { Platform, Vibration } from "react-native";
 
-const ORDER_ALERT_SOUND = require("../../assets/sounds/order-alert.mp3");
+import { playSound } from "./soundManager";
+import { speak } from "./voiceManager";
 
 let lastNotifiedAttemptId = "";
 let notificationChannelReady = false;
 let notificationHandlerInstalled = false;
 let expoGoPushNoticeShown = false;
-let audioModeReady = false;
 
 function isExpoGoRuntime() {
   const appOwnership = String(Constants.appOwnership || "").trim().toLowerCase();
@@ -32,58 +32,6 @@ async function loadNotificationsModule() {
     return await import("expo-notifications");
   } catch {
     return null;
-  }
-}
-
-async function loadAudioModule() {
-  try {
-    return await import("expo-av");
-  } catch {
-    return null;
-  }
-}
-
-async function ensureAudioMode(avModule) {
-  const Audio = avModule?.Audio;
-  if (audioModeReady || !Audio?.setAudioModeAsync) {
-    return;
-  }
-
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    staysActiveInBackground: false,
-    playsInSilentModeIOS: true,
-    interruptionModeIOS: avModule?.InterruptionModeIOS?.DuckOthers,
-    interruptionModeAndroid: avModule?.InterruptionModeAndroid?.DuckOthers,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-  audioModeReady = true;
-}
-
-async function playOrderAlertSound() {
-  const avModule = await loadAudioModule();
-  const Audio = avModule?.Audio;
-  if (!Audio?.Sound) {
-    return false;
-  }
-
-  try {
-    await ensureAudioMode(avModule);
-    const sound = new Audio.Sound();
-    await sound.loadAsync(ORDER_ALERT_SOUND, {
-      shouldPlay: true,
-      volume: 1,
-      progressUpdateIntervalMillis: 250,
-    });
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status?.didJustFinish || status?.isLoaded === false) {
-        sound.unloadAsync().catch(() => null);
-      }
-    });
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -210,13 +158,14 @@ export async function announceIncomingOffer(offer) {
   lastNotifiedAttemptId = attemptId;
 
   try {
-    Vibration.vibrate([0, 350, 180, 350]);
+    Vibration.vibrate([0, 400, 180, 400, 180, 400, 180, 400, 180, 400]);
   } catch {
     // no-op
   }
 
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
-  await playOrderAlertSound().catch(() => null);
+  await playSound("new_order").catch(() => null);
+  speak("New order received");
 
   return true;
 }

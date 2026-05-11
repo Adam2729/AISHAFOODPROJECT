@@ -23,6 +23,14 @@ import CitySelectScreen from "./src/screens/CitySelectScreen";
 import { AppShellProvider, useAppShell } from "./src/context/AppShellContext";
 import { CUSTOMER_THEME } from "./src/lib/customerTheme";
 import { navigationRef } from "./src/lib/navigation";
+import {
+  cleanupSoundManager,
+  initializeSoundManager,
+} from "./src/lib/soundManager";
+import {
+  cleanupVoiceManager,
+  initializeVoiceManager,
+} from "./src/lib/voiceManager";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -83,6 +91,16 @@ function MainTabs() {
 }
 
 export default function App() {
+  useEffect(() => {
+    initializeSoundManager().catch(() => null);
+    initializeVoiceManager();
+
+    return () => {
+      cleanupVoiceManager();
+      cleanupSoundManager().catch(() => null);
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AppShellProvider>
