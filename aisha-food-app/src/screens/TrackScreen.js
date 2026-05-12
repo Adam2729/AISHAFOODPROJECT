@@ -32,6 +32,7 @@ import { playSound } from "../lib/soundManager";
 import { openSupportWhatsApp } from "../lib/supportWhatsApp";
 import { getCustomerUiCopy } from "../lib/customerUi";
 import { speak } from "../lib/voiceManager";
+import { useSafeKeepAwake } from "../lib/keepAwake";
 
 function isObjectIdLike(value) {
   return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
@@ -274,6 +275,14 @@ export default function TrackScreen({ route }) {
     Number.isFinite(Number(snapshot?.etaMinutes)) &&
     !["pending_payment", "cancelled", "delivered"].includes(deliveryPresentation.stageKey);
   const currentDriverStatus = driverStatusLabel(deliveryPresentation.stageKey);
+  const shouldKeepScreenAwake =
+    Boolean(snapshot) &&
+    !loading &&
+    ["new", "accepted", "preparing", "ready", "out_for_delivery"].includes(
+      String(currentStatus || "").trim().toLowerCase()
+    );
+
+  useSafeKeepAwake(shouldKeepScreenAwake, "oranjeeats-customer-track");
 
   useEffect(() => {
     if (!snapshot) return;

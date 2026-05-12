@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AishaFoodProject",
-  description: "Local marketplace backend and admin panels",
+  title: "OranjeEats",
+  description:
+    "OranjeEats is a local food delivery and merchant operations platform for customers, restaurants, drivers, and marketplace teams.",
 };
 
 export default function RootLayout({

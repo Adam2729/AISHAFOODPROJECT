@@ -20,10 +20,7 @@ const PLAY_DEBOUNCE_MS = 900;
 let appState = AppState.currentState;
 let appStateSubscription = null;
 let initialized = false;
-let initializingPromise = null;
-let currentSoundType = "";
-const lastPlayedAt = new Map();
-const soundCache = new Map();
+let initializingPromise = null; 
 
 function clampVolume(level) {
   const numericLevel = Number(level);

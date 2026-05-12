@@ -39,6 +39,7 @@ import {
   getOrderCurrency,
   getOrderReference,
 } from "../lib/orderUtils";
+import { useSafeKeepAwake } from "../lib/keepAwake";
 
 const PAYMENT_OPTIONS = [
   { value: "cash", label: "Cash" },
@@ -191,10 +192,16 @@ export default function ActiveDeliveryScreen({
   const pickupLocation = getPickupLocation(order);
   const dropoffLocation = getDropoffLocation(order);
   const liveDriverLocation = driverLocation || order?.driverLocation || null;
+  const orderStatus = String(order?.status || "").trim().toLowerCase();
   const mapNavigationHandler =
     order?.dispatch?.pickupConfirmedAt || String(order?.status || "").trim().toLowerCase() === "out_for_delivery"
       ? onNavigateCustomer
       : onNavigatePickup;
+
+  useSafeKeepAwake(
+    Boolean(order) && !["delivered", "cancelled", "canceled"].includes(orderStatus),
+    "oranjeeats-driver-active-delivery"
+  );
 
   const stepStates = useMemo(() => {
     const delivered = String(order?.status || "").trim().toLowerCase() === "delivered";
