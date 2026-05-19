@@ -1,17 +1,24 @@
 {
   "expo": {
     "name": "OranjeEats Driver",
-    "slug": "aisha-food-driver-app",
+    "slug": "oranjeeats-driver",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "aishafooddriverapp",
+    "scheme": "oranjeeatsdriver",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.oranjeeats.driver",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "OranjeEats Driver uses your location to assign nearby orders, guide deliveries, and update customers and merchants during active deliveries."
+      }
     },
     "android": {
+      "package": "com.oranjeeats.driver",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,7 +46,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#FF6B00",
+          "defaultChannel": "driver-offers"
+        }
+      ],
       "expo-router",
       "expo-web-browser"
     ],

@@ -40,6 +40,7 @@ export default function DeleteAccountRequestForm() {
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const mailtoHref = useMemo(() => buildMailtoHref(form), [form]);
 
@@ -48,7 +49,7 @@ export default function DeleteAccountRequestForm() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = form.name.trim();
     const contact = form.contact.trim();
@@ -59,8 +60,42 @@ export default function DeleteAccountRequestForm() {
     }
 
     setError("");
-    setSubmitted(true);
-    window.location.href = mailtoHref;
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/account/delete-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email_or_phone: contact,
+          accountType: form.accountType,
+          reason: form.reason.trim(),
+        }),
+      });
+
+      let payload: { ok?: boolean; error?: { message?: string }; message?: string } | null = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error?.message || payload?.message || "Could not send request.");
+      }
+
+      setSubmitted(true);
+      setForm(initialState);
+    } catch (requestError) {
+      setError("Could not send the request directly. Opening your email app instead.");
+      window.location.href = mailtoHref;
+      console.warn("Delete request API unavailable, using mailto fallback.", requestError);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -71,9 +106,9 @@ export default function DeleteAccountRequestForm() {
         </p>
         <h2 className="mt-3 text-2xl font-semibold text-slate-950">Request account deletion</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-          This form opens your email app with a pre-filled request to{" "}
-          <span className="font-semibold text-slate-900">{EMAIL_TARGET}</span>. We can add a direct
-          backend workflow later without changing the public guidance.
+          This form sends a deletion request to OranjeEats support. If the request API is unavailable,
+          the form falls back to your email app and pre-fills a message to{" "}
+          <span className="font-semibold text-slate-900">{EMAIL_TARGET}</span>.
         </p>
       </div>
 
@@ -130,20 +165,18 @@ export default function DeleteAccountRequestForm() {
 
         {submitted ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-            Your email app should open with a pre-filled deletion request. If it does not, write to{" "}
-            <a className="underline" href={`mailto:${EMAIL_TARGET}`}>
-              {EMAIL_TARGET}
-            </a>
-            .
+            Your account deletion request has been received and logged. OranjeEats support will review
+            it before any account action is taken.
           </div>
         ) : null}
 
         <div className="flex flex-wrap gap-3">
           <button
             type="submit"
+            disabled={submitting}
             className="rounded-2xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
           >
-            Open deletion request
+            {submitting ? "Sending request..." : "Send deletion request"}
           </button>
           <a
             href={`mailto:${EMAIL_TARGET}`}
